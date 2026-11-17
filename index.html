@@ -1,0 +1,2534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Hue Swipe</title>
+<meta name="description" content="Swipe through colours, post your favourites, and see what colours your friends are into.">
+
+<!-- link previews (iMessage, WhatsApp, Discord...). If you get a domain, swap the address below for it. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Hue Swipe">
+<meta property="og:description" content="Swipe through colours, post your favourites, and see what colours your friends are into.">
+<meta property="og:image" content="https://starfishrp.github.io/hueswipe/og.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- app icon + install-to-home-screen -->
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hue Swipe">
+
+<!-- Supabase client, pinned to an exact version with an integrity check -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"
+  integrity="sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O"
+  crossorigin="anonymous"></script>
+<style>
+  :root {
+    --tb-h: 58px;
+    --bg: #0e0e10;
+    --card: #1a1a1d;
+    --card2: #26262a;
+    --muted: #9a9aa2;
+    --accent: #3897f0;
+    --danger: #ff4d5e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  button, input, textarea { font-family: inherit; }
+
+  /* ---------- views ---------- */
+  .view {
+    position: fixed;
+    inset: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .view.active {
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  /* ---------- feeds ---------- */
+  .feed {
+    position: absolute;
+    inset: 0;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    scrollbar-width: none;
+  }
+  .feed::-webkit-scrollbar { display: none; }
+  .slide {
+    height: 100vh;
+    height: 100dvh;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    position: relative;
+  }
+  /* ---------- Home feed (square post cards) ---------- */
+  .home-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(12px + env(safe-area-inset-top)) 12px 10px 16px;
+    background: rgba(14,14,16,0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span {
+    background: linear-gradient(90deg, #ff5f6d, #ffc371, #47e5bc, #5b8cff, #c86dd7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-left: 4px;
+  }
+  .icon-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 22px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .home-list {
+    max-width: 520px;
+    margin: 0 auto;
+    padding-bottom: calc(var(--tb-h) + 30px + env(safe-area-inset-bottom));
+  }
+  .home-banner { margin: 12px 14px 4px; }
+  .card { padding: 10px 0 18px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .card-head { display: flex; align-items: center; gap: 10px; padding: 4px 14px 10px; }
+  .card-head .avatar { width: 32px; height: 32px; }
+  .card-user { font-weight: 700; font-size: 14px; }
+  .card-time { color: var(--muted); font-size: 13px; }
+  .card-square {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  .card-hex {
+    position: absolute;
+    left: 12px;
+    bottom: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    opacity: 0.6;
+  }
+  .card-actions { display: flex; gap: 2px; padding: 6px 6px 2px; }
+  .ca-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s ease;
+  }
+  .ca-btn:active { transform: scale(0.85); }
+  .ca-btn.liked { color: #ff3040; }
+  .ca-btn.pulse { animation: pulse 0.35s ease; }
+  .card-text { padding: 0 14px; display: flex; flex-direction: column; gap: 5px; font-size: 14px; line-height: 1.4; }
+  .card-likes { font-weight: 700; }
+  .card-caption, .card-comment { word-wrap: break-word; }
+  .card-caption b, .card-comment b { font-weight: 700; margin-right: 6px; }
+  .card-link {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .home-empty {
+    padding: 70px 28px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+  .home-empty h2 { font-size: 20px; }
+  .home-empty .row { width: 100%; max-width: 320px; }
+
+  .burst-heart {
+    position: fixed;
+    font-size: 90px;
+    color: #fff;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.35);
+    pointer-events: none;
+    z-index: 20;
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0;
+    animation: burst 0.7s ease forwards;
+  }
+  @keyframes burst {
+    0%   { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+    25%  { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+    40%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+  }
+
+  /* ---------- sidebar ---------- */
+  .sidebar {
+    position: fixed;
+    right: 12px;
+    bottom: calc(var(--tb-h) + 70px + env(safe-area-inset-bottom));
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+  }
+  .sidebar.hidden { display: none; }
+  .sb-btn {
+    background: none;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .sb-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.28);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: #fff;
+    transition: transform 0.15s ease;
+  }
+  .sb-btn:active .sb-icon { transform: scale(0.85); }
+  .sb-icon.liked { color: #ff3040; }
+  .sb-icon.pulse { animation: pulse 0.35s ease; }
+  @keyframes pulse {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.3); }
+    100% { transform: scale(1); }
+  }
+  .sb-count {
+    color: rgba(255,255,255,0.9);
+    mix-blend-mode: difference;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* ---------- toolbar ---------- */
+  .toolbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 25;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(10,10,12,0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+    color: rgba(255,255,255,0.5);
+    font-size: 10.5px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tab-btn .tab-icon { font-size: 21px; height: 26px; display: flex; align-items: center; filter: grayscale(1); opacity: 0.7; }
+  .tab-btn.active { color: #fff; }
+  .tab-btn.active .tab-icon { filter: none; opacity: 1; }
+  .tab-btn.post-tab .tab-icon {
+    filter: none;
+    opacity: 1;
+    width: 44px;
+    height: 28px;
+    justify-content: center;
+    border-radius: 9px;
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1;
+    color: #fff;
+    background: linear-gradient(90deg, #ff5f6d, #ffc371, #47e5bc, #5b8cff, #c86dd7);
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,0.15);
+  }
+  .tab-btn.post-tab.active .tab-icon { box-shadow: inset 0 0 0 2px #fff; }
+
+  /* ---------- panel views (post / friends / me) ---------- */
+  .panel {
+    background: var(--bg);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .panel-inner {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: calc(22px + env(safe-area-inset-top)) 18px calc(var(--tb-h) + 40px + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .panel-title { font-size: 24px; font-weight: 800; }
+  .section-title { font-size: 15px; font-weight: 700; margin-top: 18px; }
+  .muted { color: var(--muted); font-size: 13px; line-height: 1.45; }
+  .center { text-align: center; }
+  .input {
+    width: 100%;
+    background: var(--card2);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #fff;
+    font-size: 16px; /* 16px stops iOS zooming on focus */
+    outline: none;
+  }
+  .input:focus { border-color: var(--accent); }
+  textarea.input { resize: none; min-height: 72px; }
+  .at-input {
+    display: flex;
+    align-items: center;
+    background: var(--card2);
+    border-radius: 12px;
+    padding-left: 14px;
+  }
+  .at-input { border: 1px solid transparent; }
+  .at-input:focus-within { border-color: var(--accent); }
+  .at-input span { color: var(--muted); font-size: 16px; }
+  .at-input .input { background: transparent; padding-left: 2px; border: none; }
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:disabled { opacity: 0.45; }
+  .btn.secondary { background: var(--card2); }
+  .btn.danger { background: transparent; color: var(--danger); }
+  .btn.small { padding: 7px 12px; font-size: 13px; border-radius: 10px; }
+  .btn.block { width: 100%; }
+  .link-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px;
+    cursor: pointer;
+  }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .notice {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* post composer */
+  .post-preview {
+    width: 100%;
+    height: 42vh;
+    border-radius: 18px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 14px 16px;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 1px;
+    transition: background 0.2s ease;
+  }
+  .color-btn { position: relative; overflow: hidden; text-align: center; }
+  .color-btn input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+  }
+
+  /* user rows */
+  .user-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+  }
+  .user-row .name { flex: 1; font-weight: 700; font-size: 15px; }
+  .user-row .actions { display: flex; gap: 6px; }
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .avatar.big { width: 64px; height: 64px; }
+  .profile-head { display: flex; align-items: center; gap: 14px; }
+  .profile-name { font-size: 20px; font-weight: 800; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .tile {
+    aspect-ratio: 9 / 16;
+    border-radius: 10px;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .tile-del {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0,0,0,0.4);
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  /* palette picker */
+  .palette-option {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    border-radius: 14px;
+    background: var(--card);
+    border: 2px solid transparent;
+    cursor: pointer;
+  }
+  .palette-option.selected { border-color: var(--accent); background: #1b2330; }
+  .palette-swatches {
+    display: flex;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+    width: 56px;
+    height: 36px;
+  }
+  .palette-swatches span { flex: 1; }
+  .palette-info { flex: 1; }
+  .palette-name { font-size: 15px; font-weight: 700; }
+  .palette-desc { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .palette-check { color: var(--accent); font-size: 18px; font-weight: 800; opacity: 0; }
+  .palette-option.selected .palette-check { opacity: 1; }
+
+  /* ---------- sheets ---------- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 30;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .overlay.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    width: 100%;
+    max-width: 520px;
+    background: #17171a;
+    border-radius: 18px 18px 0 0;
+    padding: 14px 16px calc(16px + env(safe-area-inset-bottom) + var(--kb, 0px));
+    transform: translateY(100%);
+    transition: transform 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    max-height: 72vh;
+  }
+  .overlay.open .sheet { transform: translateY(0); }
+  .sheet-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: #444;
+    margin: 0 auto 12px;
+  }
+  .sheet-title { font-size: 15px; font-weight: 700; text-align: center; margin-bottom: 12px; }
+  .comment-list {
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-bottom: 8px;
+    min-height: 120px;
+  }
+  .comment-row { display: flex; gap: 10px; align-items: flex-start; }
+  .comment-row .avatar { width: 34px; height: 34px; }
+  .comment-body { color: #eee; font-size: 14px; line-height: 1.35; word-wrap: break-word; min-width: 0; }
+  .comment-user { font-weight: 700; margin-right: 6px; }
+  .comment-meta { color: #888; font-size: 12px; margin-top: 3px; }
+  .comment-input-row { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+  .comment-input-row .input { border-radius: 20px; padding: 10px 14px; }
+  .comment-input-row .btn { border-radius: 20px; }
+  .share-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card2);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .share-swatch { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
+  .share-link { flex: 1; color: #ddd; font-size: 13px; word-break: break-all; }
+  .btn.copied { background: #2ecc71; }
+
+  /* ---------- toast ---------- */
+  .toast {
+    position: fixed;
+    top: calc(56px + env(safe-area-inset-top));
+    left: 50%;
+    transform: translate(-50%, -10px);
+    background: rgba(20,20,22,0.92);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    max-width: 90vw;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---------- menus, profiles, hints ---------- */
+  .tab-btn { position: relative; }
+  .tab-badge {
+    position: absolute;
+    top: -3px;
+    left: calc(50% + 6px);
+    min-width: 17px;
+    height: 17px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #ff3040;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 17px;
+    text-align: center;
+  }
+  .tab-badge[hidden] { display: none; }
+  .card-user {
+    background: none;
+    border: none;
+    color: #fff;
+    padding: 0;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .card-more {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    width: 38px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .name-link { cursor: pointer; }
+  .comment-body { flex: 1; }
+  .comment-more {
+    background: none;
+    border: none;
+    color: #777;
+    font-size: 18px;
+    width: 32px;
+    height: 28px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .action-overlay { z-index: 35; }
+  .action-list { display: flex; flex-direction: column; gap: 6px; }
+  .action-btn {
+    background: var(--card2);
+    border: none;
+    color: #fff;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .action-btn.danger { color: var(--danger); }
+  .action-btn.cancel { background: transparent; color: var(--muted); }
+  .hint-pill {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--tb-h) + 26px + env(safe-area-inset-bottom));
+    transform: translate(-50%, 10px);
+    background: rgba(20,20,22,0.92);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    max-width: 88vw;
+    text-align: center;
+  }
+  .hint-pill.show { opacity: 1; transform: translate(-50%, 0); }
+  .home-more { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0 8px; }
+  .ptr {
+    position: fixed;
+    top: calc(66px + env(safe-area-inset-top));
+    left: 50%;
+    transform: translate(-50%, -30px);
+    opacity: 0;
+    z-index: 6;
+    background: var(--card2);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 16px;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+  .profile-top { display: flex; align-items: center; justify-content: space-between; }
+  .back-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 4px 0;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .check-row { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted); line-height: 1.45; }
+  .check-row input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--accent); flex-shrink: 0; }
+  .check-row a, .footer-links a { color: var(--accent); }
+  .footer-links { text-align: center; font-size: 13px; margin-top: 18px; }
+  .danger-zone { display: flex; flex-direction: column; gap: 6px; }
+  .btn.danger.block { background: rgba(255,77,94,0.1); }
+</style>
+</head>
+<body>
+
+<!-- HOME: square post cards from you and your friends -->
+<div class="view panel active" id="homeView">
+  <div class="home-head">
+    <div class="logo">Hue<span>Swipe</span></div>
+    <button class="icon-btn" id="homeRefresh" aria-label="Refresh">↻</button>
+  </div>
+  <div class="ptr" id="ptr">↓ Pull to refresh</div>
+  <div class="home-list" id="homeList"></div>
+</div>
+
+<!-- DOOMSCROLL: endless full-screen colours -->
+<div class="view" id="doomView">
+  <div class="feed" id="doomFeed"></div>
+  <div class="sidebar" id="sidebar">
+    <button class="sb-btn" id="heartBtn" aria-label="Like">
+      <div class="sb-icon" id="heartIcon">♡</div>
+      <div class="sb-count" id="heartCount">0</div>
+    </button>
+    <button class="sb-btn" id="commentBtn" aria-label="Comments">
+      <div class="sb-icon">💬</div>
+      <div class="sb-count" id="commentCount">0</div>
+    </button>
+    <button class="sb-btn" id="shareBtn" aria-label="Share">
+      <div class="sb-icon">↗</div>
+      <div class="sb-count">Share</div>
+    </button>
+  </div>
+</div>
+
+<!-- POST -->
+<div class="view panel" id="postView"><div class="panel-inner" id="postInner"></div></div>
+
+<!-- FRIENDS -->
+<div class="view panel" id="friendsView"><div class="panel-inner" id="friendsInner"></div></div>
+
+<!-- ME: account + settings -->
+<div class="view panel" id="meView"><div class="panel-inner" id="meInner"></div></div>
+
+<!-- someone else's profile (opened from an @, not a tab) -->
+<div class="view panel" id="profileView"><div class="panel-inner" id="profileInner"></div></div>
+
+<nav class="toolbar">
+  <button class="tab-btn active" id="homeTab"><div class="tab-icon">🏠</div><div>Home</div></button>
+  <button class="tab-btn" id="doomTab"><div class="tab-icon">🌀</div><div>Doomscroll</div></button>
+  <button class="tab-btn post-tab" id="postTab"><div class="tab-icon">+</div><div>Post</div></button>
+  <button class="tab-btn" id="friendsTab">
+    <div class="tab-icon">👥</div><div>Friends</div>
+    <span class="tab-badge" id="friendsBadge" hidden></span>
+  </button>
+  <button class="tab-btn" id="meTab"><div class="tab-icon">👤</div><div>Me</div></button>
+</nav>
+
+<!-- comments sheet -->
+<div class="overlay" id="commentOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="commentTitle">Comments</div>
+    <div class="comment-list" id="commentList"></div>
+    <div class="comment-input-row">
+      <input class="input" id="commentInput" placeholder="Add a comment..." maxlength="300" enterkeyhint="send">
+      <button class="btn" id="commentPost">Post</button>
+    </div>
+  </div>
+</div>
+
+<!-- share sheet -->
+<div class="overlay" id="shareOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Share this colour</div>
+    <div class="share-row">
+      <div class="share-swatch" id="shareSwatch"></div>
+      <div class="share-link" id="shareLink"></div>
+      <button class="btn small" id="shareCopy">Copy</button>
+    </div>
+    <button class="btn block" id="shareNative">Share via...</button>
+  </div>
+</div>
+
+<!-- action sheet (⋯ menus, report reasons) -->
+<div class="overlay action-overlay" id="actionOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="actionTitle"></div>
+    <div class="action-list" id="actionList"></div>
+  </div>
+</div>
+
+<div class="hint-pill" id="hintPill"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// =====================================================================
+//  CONFIG — paste your two Supabase values here (see README, step 2).
+//  Both are safe to publish: the rules in schema.sql protect the data.
+// =====================================================================
+const CONFIG = {
+  supabaseUrl: 'https://zuxvutwgirobldkhpkma.supabase.co',
+  supabaseAnonKey: 'sb_publishable_xf9WrLxP0MMFn9QR0VtheA_YTR1e9Kn',
+  siteUrl: 'https://starfishrp.github.io/hueswipe',
+};
+// =====================================================================
+
+const $ = (id) => document.getElementById(id);
+
+const sb = (CONFIG.supabaseUrl && CONFIG.supabaseAnonKey && window.supabase)
+  ? window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey)
+  : null;
+
+// Keys filled in but the library didn't load (offline, or blocked by the integrity check).
+if (CONFIG.supabaseUrl && !window.supabase) {
+  window.addEventListener('load', () => {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:60;background:#b3261e;color:#fff;' +
+      'padding:calc(10px + env(safe-area-inset-top)) 16px 10px;font:600 13px/1.4 -apple-system,sans-serif;text-align:center';
+    banner.textContent = 'Couldn’t load the accounts library, so you’re in guest mode. Check your connection and refresh.';
+    document.body.appendChild(banner);
+  });
+}
+
+const BASE_URL = (() => {
+  if (CONFIG.siteUrl) return CONFIG.siteUrl.replace(/\/+$/, '');
+  if (location.protocol === 'file:' || location.origin === 'null') return 'https://hueswipe.com';
+  return location.origin + location.pathname.replace(/\/[^/]*$/, '');
+})();
+
+let session = null;
+let me = null;              // { id, username } once the user has picked an @
+let lastUserId = undefined;
+let authReady = !sb;        // true once we know whether someone is signed in
+let recoveryMode = false;   // arrived from a "reset password" email
+let blockedIds = new Set();
+let blockedList = [];       // [{ id, username }]
+
+// ---------------------------------------------------------------------
+//  small helpers
+// ---------------------------------------------------------------------
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function friendlyError(error, fallback) {
+  if (error && /rate limit/i.test(error.message || '')) return 'Slow down a little, try again later';
+  return fallback;
+}
+
+function formatCount(n) {
+  return n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(n);
+}
+
+function timeAgo(iso) {
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return 'now';
+  const m = s / 60; if (m < 60) return Math.floor(m) + 'm';
+  const h = m / 60; if (h < 24) return Math.floor(h) + 'h';
+  const d = h / 24; if (d < 7) return Math.floor(d) + 'd';
+  return Math.floor(d / 7) + 'w';
+}
+
+function hashHue(str) {
+  let h = 0;
+  for (const ch of String(str)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return h;
+}
+
+function avatarStyle(name) {
+  return `background:hsl(${hashHue(name)},70%,55%)`;
+}
+
+function inkFor(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? '#111' : '#fff';
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+async function copyText(text, msg) {
+  try { await navigator.clipboard.writeText(text); toast(msg); }
+  catch { toast('Couldn’t copy. Long-press to copy instead.'); }
+}
+
+function showHintOnce(key, text) {
+  if (store.get('hint_' + key, '')) return;
+  store.set('hint_' + key, '1');
+  const pill = $('hintPill');
+  pill.textContent = text;
+  pill.classList.add('show');
+  setTimeout(() => pill.classList.remove('show'), 3800);
+}
+
+// The keyboard on iPhone covers fixed elements; lift the bottom sheets above it.
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const updateKb = () => {
+    const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty('--kb', kb + 'px');
+  };
+  vv.addEventListener('resize', updateKb);
+  vv.addEventListener('scroll', updateKb);
+}
+
+// ---------------------------------------------------------------------
+//  colours + palettes
+// ---------------------------------------------------------------------
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = (n) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const toHex = (x) => Math.round(255 * x).toString(16).padStart(2, '0');
+  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+}
+
+const r = Math.random;
+
+// "Everything" mixes many kinds of colour so the feed never settles into one look.
+// [weight, () => [saturation, lightness]]
+const MIX_STYLES = [
+  [5, () => [65 + r() * 25, 42 + r() * 14]],  // vivid
+  [3, () => [35 + r() * 25, 76 + r() * 12]],  // pastel
+  [2, () => [92 + r() * 8,  50 + r() * 12]],  // neon
+  [3, () => [45 + r() * 40, 14 + r() * 18]],  // deep / jewel
+  [2, () => [12 + r() * 28, 34 + r() * 32]],  // dusty / muted
+  [1, () => [60 + r() * 35, 88 + r() * 6]],   // pale tint
+  [1, () => [r() * 8,       6 + r() * 88]],   // neutrals, near-black to near-white
+  [2, () => [r() * 100,     8 + r() * 84]],   // anything goes
+];
+const MIX_TOTAL = MIX_STYLES.reduce((sum, [w]) => sum + w, 0);
+function mixSL() {
+  let pick = r() * MIX_TOTAL;
+  for (const [w, fn] of MIX_STYLES) { if ((pick -= w) < 0) return fn(); }
+  return MIX_STYLES[0][1]();
+}
+
+let monoHue = r() * 360;
+
+const palettes = {
+  mix: {
+    name: 'Everything', desc: 'Bright, soft, deep, neon and neutral, all mixed together',
+    preview: ['#e53935', '#bfe3ff', '#1d3b2a', '#ff2d95'],
+    hue: () => r() * 360, sl: mixSL, minHueGap: 25,
+  },
+  vivid: {
+    name: 'Vivid', desc: 'Bold, saturated colour across the wheel',
+    preview: ['#e53935', '#1e88e5', '#fdd835'],
+    hue: () => r() * 360, sl: () => [65 + r() * 25, 42 + r() * 14], minHueGap: 30,
+  },
+  pastel: {
+    name: 'Pastel', desc: 'Soft, washed-out tones',
+    preview: ['#f7c6d9', '#c9e4ff', '#fff3b0'],
+    hue: () => r() * 360, sl: () => [35 + r() * 25, 78 + r() * 10], minHueGap: 30,
+  },
+  neon: {
+    name: 'Neon', desc: 'Loud, electric, high-contrast',
+    preview: ['#ff2d95', '#00f0ff', '#c6ff00'],
+    hue: () => r() * 360, sl: () => [92 + r() * 8, 52 + r() * 10], minHueGap: 30,
+  },
+  moody: {
+    name: 'Moody', desc: 'Dark, muted, low-light tones',
+    preview: ['#2b1b2f', '#1f2e33', '#33241c'],
+    hue: () => r() * 360, sl: () => [28 + r() * 30, 16 + r() * 12], minHueGap: 30,
+  },
+  earth: {
+    name: 'Earth', desc: 'Terracotta, olive and clay tones',
+    preview: ['#a9744f', '#6b7a3f', '#c98f4a'],
+    hue: () => 15 + r() * 90, sl: () => [30 + r() * 30, 28 + r() * 22], minHueGap: 18,
+  },
+  mono: {
+    name: 'Monochrome', desc: 'One hue, many shades',
+    preview: null,
+    hue: () => monoHue, sl: () => [45 + r() * 35, 22 + r() * 55], minHueGap: 0,
+  },
+};
+
+let currentPalette = store.get('palette', 'mix');
+if (!palettes[currentPalette]) currentPalette = 'mix';
+
+let lastHue = null;
+function randomColor(key = currentPalette) {
+  const p = palettes[key];
+  let hue = p.hue();
+  for (let tries = 0; p.minHueGap && lastHue !== null && tries < 20; tries++) {
+    const gap = Math.abs(hue - lastHue);
+    if (Math.min(gap, 360 - gap) >= p.minHueGap) break;
+    hue = p.hue();
+  }
+  lastHue = hue;
+  const [s, l] = p.sl();
+  return hslToHex(hue, s, l);
+}
+
+// ---------------------------------------------------------------------
+//  generated comments (Doomscroll + sample posts)
+// ---------------------------------------------------------------------
+const fakeUsers = [
+  'pixel.dana', 'huemonger', 'vibecheck_j', 'nocturne_ry', 'saturated.sam',
+  'moodboardqueen', 'lo_fi_leo', 'chromawave', 'tint.theory', 'glow.getter',
+  'shade.shifter', 'quietstorm22', 'palettepal', 'dusk.driver', 'neonrae',
+];
+const commentTemplates = [
+  'okay this one actually goes hard', 'not me stopping my scroll for a COLOUR',
+  'the way this just fixed my mood', 'saving this for a moodboard',
+  'is it just me or is this the best one yet', 'need this as a wall paint colour immediately',
+  'the algorithm knows what I like', 'this is giving main character energy',
+  'why is this so satisfying to look at', 'screenshotted this one',
+  'genuinely could stare at this for an hour', 'this hue >>>',
+  'first', 'okay but this shade is perfect', 'this belongs in a museum',
+  'sending this to my group chat', 'underrated shade tbh', 'my new phone background',
+];
+function randomComments(count) {
+  const shuffled = [...commentTemplates].sort(() => r() - 0.5);
+  const times = ['1m', '3m', '8m', '14m', '22m', '41m', '1h', '2h', '5h'];
+  return Array.from({ length: count }, (_, i) => ({
+    user: fakeUsers[Math.floor(r() * fakeUsers.length)],
+    text: shuffled[i % shuffled.length],
+    time: times[Math.floor(r() * times.length)],
+  }));
+}
+function getRandomComments(d) {
+  if (!d.comments) d.comments = randomComments(Math.floor(r() * 10) + 3);
+  return d.comments;
+}
+
+// =====================================================================
+//  shared item logic — an "item" is a Doomscroll slide or a Home post
+// =====================================================================
+let currentView = 'home';
+let activeSlide = null;
+const slideData = new WeakMap();
+const cardData = new WeakMap();
+
+function activeDoomItem() {
+  return activeSlide ? slideData.get(activeSlide) : null;
+}
+
+function isRealPost(d) {
+  return d.kind === 'post' && !d.demo;
+}
+
+function commentCountOf(d) {
+  return d.kind === 'random' ? getRandomComments(d).length : d.commentCount;
+}
+
+// Re-draw wherever this item is on screen.
+function refreshItem(d, pulse) {
+  if (d.card) updateCard(d, pulse);
+  if (activeDoomItem() === d) { renderSidebar(); if (pulse) pulseHeart(); }
+}
+
+async function setLike(d, value) {
+  if (!d || d.liked === value) return;
+  if (isRealPost(d) && !me) { toast('Sign in to like posts'); return; }
+
+  d.liked = value;
+  d.likes += value ? 1 : -1;
+  refreshItem(d, true);
+  if (!isRealPost(d)) return;
+
+  const { error } = value
+    ? await sb.from('likes').insert({ post_id: d.id, user_id: me.id })
+    : await sb.from('likes').delete().eq('post_id', d.id).eq('user_id', me.id);
+
+  if (error && error.code !== '23505') {
+    d.liked = !value;
+    d.likes += value ? -1 : 1;
+    refreshItem(d);
+    toast(friendlyError(error, 'Couldn’t save that like'));
+  }
+}
+
+// double tap to like
+function showBurst(x, y) {
+  const heart = document.createElement('div');
+  heart.className = 'burst-heart';
+  heart.textContent = '♥';
+  heart.style.left = x + 'px';
+  heart.style.top = y + 'px';
+  document.body.appendChild(heart);
+  heart.addEventListener('animationend', () => heart.remove());
+}
+
+let lastTap = { t: 0, x: 0, y: 0 };
+function isDoubleTap(e) {
+  const now = Date.now();
+  const close = Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 60;
+  if (now - lastTap.t < 350 && close) { lastTap.t = 0; return true; }
+  lastTap = { t: now, x: e.clientX, y: e.clientY };
+  return false;
+}
+
+function doubleTapLike(d, e) {
+  if (isRealPost(d) && !me) { toast('Sign in to like posts'); return; }
+  setLike(d, true);
+  showBurst(e.clientX, e.clientY);
+}
+
+// =====================================================================
+//  sheets
+// =====================================================================
+const commentOverlay = $('commentOverlay');
+const shareOverlay = $('shareOverlay');
+const actionOverlay = $('actionOverlay');
+
+function closeSheets() {
+  [commentOverlay, shareOverlay, actionOverlay].forEach((o) => o.classList.remove('open'));
+}
+[commentOverlay, shareOverlay, actionOverlay].forEach((o) => {
+  o.addEventListener('click', (e) => { if (e.target === o) o.classList.remove('open'); });
+});
+
+// actions: [{ label, handler, danger }]
+function actionSheet(title, actions) {
+  $('actionTitle').textContent = title;
+  const list = $('actionList');
+  list.innerHTML = '';
+  [...actions, { label: 'Cancel', cancel: true }].forEach((a) => {
+    const b = document.createElement('button');
+    b.className = 'action-btn' + (a.danger ? ' danger' : '') + (a.cancel ? ' cancel' : '');
+    b.textContent = a.label;
+    b.addEventListener('click', () => {
+      actionOverlay.classList.remove('open');
+      if (a.handler) a.handler();
+    });
+    list.appendChild(b);
+  });
+  actionOverlay.classList.add('open');
+}
+
+// ---------------------------------------------------------------------
+//  reports + blocking
+// ---------------------------------------------------------------------
+const REPORT_REASONS = [
+  'Spam', 'Harassment or bullying', 'Hate speech',
+  'Nudity or violence', 'Someone under 16', 'Something else',
+];
+
+function report(target) {
+  actionSheet('Why are you reporting this?', REPORT_REASONS.map((reason) => ({
+    label: reason,
+    handler: () => submitReport(target, reason),
+  })));
+}
+
+async function submitReport(t, reason) {
+  if (t.demo || !sb) { toast('Thanks for letting us know'); return; }
+  if (!me) { toast('Sign in to report'); return; }
+  const { error } = await sb.from('reports').insert({
+    reported_user: t.userId || null,
+    post_id: t.postId || null,
+    comment_id: t.commentId || null,
+    reason,
+  });
+  toast(error ? friendlyError(error, 'Couldn’t send that report') : 'Thanks, we’ll take a look');
+}
+
+async function loadBlocks() {
+  const { data } = await sb.from('blocks').select('blocked, who:profiles!blocks_blocked_fkey(username)');
+  blockedList = (data || []).map((b) => ({ id: b.blocked, username: b.who ? b.who.username : '?' }));
+  blockedIds = new Set(blockedList.map((b) => b.id));
+}
+
+async function blockUser(userId, username) {
+  if (!me || !userId) return;
+  if (!confirm(`Block @${username}?\n\nYou won’t see each other’s posts or comments, and they can’t send you friend requests. They won’t be told.`)) return;
+  const { error } = await sb.from('blocks').insert({ blocked: userId });
+  if (error && error.code !== '23505') { toast('Couldn’t block'); return; }
+  await sb.from('friendships').delete()
+    .or(`and(requester.eq.${me.id},addressee.eq.${userId}),and(requester.eq.${userId},addressee.eq.${me.id})`);
+
+  blockedIds.add(userId);
+  blockedList.push({ id: userId, username });
+  homeLoaded = false;
+  homeList.querySelectorAll('.card').forEach((el) => {
+    const cd = cardData.get(el);
+    if (cd && cd.authorId === userId) el.remove();
+  });
+  if (commentOverlay.classList.contains('open') && commentTarget) {
+    renderCommentList(commentListFor(commentTarget), commentTarget);
+  }
+  toast(`Blocked @${username}`);
+  await refreshFriends();
+}
+
+async function unblockUser(userId, username) {
+  const { error } = await sb.from('blocks').delete().eq('blocked', userId);
+  if (error) { toast('Couldn’t unblock'); return; }
+  blockedIds.delete(userId);
+  blockedList = blockedList.filter((b) => b.id !== userId);
+  toast(`Unblocked @${username}`);
+  await refreshFriends();
+}
+
+// =====================================================================
+//  DOOMSCROLL
+// =====================================================================
+const doomFeed = $('doomFeed');
+
+function addRandomSlide(hex) {
+  const d = {
+    kind: 'random',
+    hex: hex || randomColor(),
+    likes: Math.floor(r() * 900 + 20),
+    liked: false,
+    comments: null,
+  };
+  const el = document.createElement('div');
+  el.className = 'slide';
+  el.style.background = d.hex;
+  slideData.set(el, d);
+  doomFeed.appendChild(el);
+}
+
+function syncActive() {
+  if (currentView !== 'doom') { activeSlide = null; renderSidebar(); return; }
+  const i = Math.round(doomFeed.scrollTop / Math.max(1, doomFeed.clientHeight));
+  activeSlide = doomFeed.children[i] || null;
+  renderSidebar();
+}
+
+let scrollTick = false;
+doomFeed.addEventListener('scroll', () => {
+  if (scrollTick) return;
+  scrollTick = true;
+  requestAnimationFrame(() => {
+    scrollTick = false;
+    syncActive();
+    const remaining = doomFeed.scrollHeight - doomFeed.scrollTop - doomFeed.clientHeight;
+    if (remaining < doomFeed.clientHeight * 2) { addRandomSlide(); addRandomSlide(); }
+  });
+});
+
+doomFeed.addEventListener('click', (e) => {
+  if (!isDoubleTap(e)) return;
+  const slide = e.target.closest('.slide');
+  const d = slide && slideData.get(slide);
+  if (d) doubleTapLike(d, e);
+});
+
+const heartIcon = $('heartIcon');
+
+function renderSidebar() {
+  const d = activeDoomItem();
+  $('sidebar').classList.toggle('hidden', !d);
+  if (!d) return;
+  heartIcon.textContent = d.liked ? '♥' : '♡';
+  heartIcon.classList.toggle('liked', d.liked);
+  $('heartCount').textContent = formatCount(d.likes);
+  $('commentCount').textContent = formatCount(commentCountOf(d));
+}
+
+function pulseHeart() {
+  heartIcon.classList.remove('pulse');
+  void heartIcon.offsetWidth;
+  heartIcon.classList.add('pulse');
+}
+
+$('heartBtn').addEventListener('click', () => {
+  const d = activeDoomItem();
+  if (d) setLike(d, !d.liked);
+});
+$('commentBtn').addEventListener('click', () => openComments(activeDoomItem()));
+$('shareBtn').addEventListener('click', () => {
+  const d = activeDoomItem();
+  if (d) openShare(d.hex);
+});
+
+// =====================================================================
+//  HOME — square post cards
+// =====================================================================
+const homeView = $('homeView');
+const homeList = $('homeList');
+const PAGE_SIZE = 20;
+let homeLoaded = false;
+let homeCursor = null;   // created_at of the oldest post loaded
+let homeDone = false;
+let homeBusy = false;
+let homeGen = 0;         // bumps on every full reload so stale responses are ignored
+
+const ICON_HEART = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M12 20.5s-7.4-4.5-9.8-9.1C.6 8.2 2.5 4.4 6.1 4c2.2-.2 4 1 5.9 3.1C13.9 5 15.7 3.8 17.9 4c3.6.4 5.5 4.2 3.9 7.4-2.4 4.6-9.8 9.1-9.8 9.1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+const ICON_BUBBLE = '<svg viewBox="0 0 24 24" width="25" height="25" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20.5l1.6-5A8.5 8.5 0 1 1 21 11.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+const ICON_SEND = '<svg viewBox="0 0 24 24" width="25" height="25" aria-hidden="true"><path d="M22 3 10 14M22 3l-7 18-4-7-7-4 18-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+
+function makeCard(d) {
+  const el = document.createElement('article');
+  el.className = 'card';
+  el.innerHTML = `
+    <div class="card-head">
+      <div class="avatar" style="${avatarStyle(d.username)}"></div>
+      <button class="card-user" data-act="profile">@${esc(d.username)}</button>
+      <div class="card-time">· ${timeAgo(d.created_at)}</div>
+      <button class="card-more" data-act="more" aria-label="More options">⋯</button>
+    </div>
+    <div class="card-square" style="background:${d.hex}">
+      <span class="card-hex" style="color:${inkFor(d.hex)}">${d.hex.toUpperCase()}</span>
+    </div>
+    <div class="card-actions">
+      <button class="ca-btn" data-act="like" aria-label="Like">${ICON_HEART}</button>
+      <button class="ca-btn" data-act="comment" aria-label="Comments">${ICON_BUBBLE}</button>
+      <button class="ca-btn" data-act="share" aria-label="Share">${ICON_SEND}</button>
+    </div>
+    <div class="card-text">
+      <div class="card-likes"></div>
+      ${d.caption ? `<div class="card-caption"><b class="name-link" data-act="profile">@${esc(d.username)}</b>${esc(d.caption)}</div>` : ''}
+      <button class="card-link" data-act="comment" data-role="viewall"></button>
+      <div class="card-preview"></div>
+      <button class="card-link" data-act="comment">Add a comment…</button>
+    </div>`;
+  d.card = el;
+  cardData.set(el, d);
+  updateCard(d);
+  return el;
+}
+
+function updateCard(d, pulse) {
+  const el = d.card;
+  const like = el.querySelector('[data-act="like"]');
+  like.classList.toggle('liked', d.liked);
+  like.querySelector('path').setAttribute('fill', d.liked ? 'currentColor' : 'none');
+  if (pulse) { like.classList.remove('pulse'); void like.offsetWidth; like.classList.add('pulse'); }
+
+  el.querySelector('.card-likes').textContent = `${d.likes.toLocaleString()} like${d.likes === 1 ? '' : 's'}`;
+
+  const preview = (d.preview || []).filter((c) => !(c.userId && blockedIds.has(c.userId)));
+  const viewAll = el.querySelector('[data-role="viewall"]');
+  viewAll.style.display = d.commentCount > preview.length ? '' : 'none';
+  viewAll.textContent = d.commentCount === 1 ? 'View 1 comment' : `View all ${d.commentCount} comments`;
+
+  // newest two, shown oldest-first like Instagram
+  el.querySelector('.card-preview').innerHTML = preview.slice().reverse()
+    .map((c) => `<div class="card-comment"><b class="name-link" data-user="${esc(c.user)}" data-uid="${esc(c.userId || '')}">${esc(c.user)}</b>${esc(c.text)}</div>`)
+    .join('');
+}
+
+homeList.addEventListener('click', (e) => {
+  const card = e.target.closest('.card');
+  const d = card && cardData.get(card);
+  if (!d) return;
+
+  const commenter = e.target.closest('[data-user]');
+  if (commenter) {
+    if (commenter.dataset.uid) openProfile(commenter.dataset.user);
+    return;
+  }
+  const btn = e.target.closest('[data-act]');
+  if (btn) {
+    const act = btn.dataset.act;
+    if (act === 'like') setLike(d, !d.liked);
+    else if (act === 'comment') openComments(d);
+    else if (act === 'share') openShare(d.hex);
+    else if (act === 'more') cardMenu(d);
+    else if (act === 'profile') {
+      if (isRealPost(d)) openProfile(d.username);
+      else toast('That’s a sample account');
+    }
+    return;
+  }
+  if (e.target.closest('.card-square') && isDoubleTap(e)) doubleTapLike(d, e);
+});
+
+function cardMenu(d) {
+  const real = isRealPost(d);
+  const actions = [{ label: 'Copy link', handler: () => copyText(shareUrl(d.hex), 'Link copied') }];
+  if (real && me && d.authorId === me.id) {
+    actions.push({ label: 'Delete post', danger: true, handler: () => deletePost(d) });
+  } else {
+    actions.push({ label: 'Report post', handler: () => report({ userId: d.authorId, postId: real ? d.id : null, demo: !real }) });
+    if (real) actions.push({ label: `Block @${d.username}`, danger: true, handler: () => blockUser(d.authorId, d.username) });
+  }
+  actionSheet(`@${d.username}`, actions);
+}
+
+async function deletePost(d) {
+  if (!confirm('Delete this post? This can’t be undone.')) return;
+  const { error } = await sb.from('posts').delete().eq('id', d.id);
+  if (error) { toast('Couldn’t delete that post'); return; }
+  if (d.card) d.card.remove();
+  toast('Post deleted');
+}
+
+function homeMessage(title, body, actions) {
+  homeList.innerHTML = '';
+  const box = document.createElement('div');
+  box.className = 'home-empty';
+  box.innerHTML = `<h2>${esc(title)}</h2>${body ? `<div class="muted">${esc(body)}</div>` : ''}`;
+  if (actions && actions.length) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    actions.forEach(([label, handler, secondary]) => {
+      const b = document.createElement('button');
+      b.className = 'btn' + (secondary ? ' secondary' : '');
+      b.textContent = label;
+      b.addEventListener('click', handler);
+      row.appendChild(b);
+    });
+    box.appendChild(row);
+  }
+  homeList.appendChild(box);
+}
+
+function renderSamplePosts() {
+  homeList.innerHTML = '';
+  const banner = document.createElement('div');
+  banner.className = 'notice home-banner';
+  banner.innerHTML = '<div class="muted">These are sample posts. Once accounts are set up (see the README), you’ll see your friends’ colours here.</div>';
+  homeList.appendChild(banner);
+
+  const captions = ['sunday mood', 'found this on a walk', 'new fav', 'ok hear me out', null,
+    'for the group chat', 'tell me this isn’t perfect', 'repainting my room this'];
+  captions.forEach((caption, i) => {
+    const comments = randomComments(Math.floor(r() * 6));
+    homeList.appendChild(makeCard({
+      kind: 'post',
+      demo: true,
+      id: 'sample-' + i,
+      hex: randomColor('mix'),
+      caption,
+      username: fakeUsers[Math.floor(r() * fakeUsers.length)],
+      created_at: new Date(Date.now() - (i + 1) * (1 + r() * 5) * 3600e3).toISOString(),
+      likes: Math.floor(r() * 400 + 3),
+      liked: false,
+      commentCount: comments.length,
+      comments,
+      preview: comments.slice(0, 2),
+    }));
+  });
+  homeDone = true;
+  addMoreMarker();
+  showHintOnce('home', 'Double-tap a colour to like it');
+}
+
+async function fetchPage(before) {
+  let q = sb.from('posts')
+    .select('id, hex, caption, created_at, author, profiles!posts_author_fkey(username), likes(count), comments(count)')
+    .order('created_at', { ascending: false })
+    .limit(PAGE_SIZE);
+  if (before) q = q.lt('created_at', before);
+  const { data, error } = await q;
+  if (error) return { error };
+  if (!data.length) return { items: [], full: false };
+
+  const ids = data.map((p) => p.id);
+  const [likesRes, commentsRes] = await Promise.all([
+    sb.from('likes').select('post_id').eq('user_id', me.id).in('post_id', ids),
+    sb.from('comments')
+      .select('id, post_id, body, created_at, author, profiles!comments_author_fkey(username)')
+      .in('post_id', ids)
+      .order('created_at', { ascending: false })
+      .limit(400),
+  ]);
+  const likedSet = new Set((likesRes.data || []).map((x) => x.post_id));
+  const previews = new Map();
+  (commentsRes.data || []).forEach((c) => {
+    if (blockedIds.has(c.author)) return;
+    const list = previews.get(c.post_id) || [];
+    if (list.length < 2) {
+      list.push({ id: c.id, user: c.profiles ? c.profiles.username : 'unknown', userId: c.author, text: c.body, time: timeAgo(c.created_at) });
+      previews.set(c.post_id, list);
+    }
+  });
+
+  const items = data.filter((p) => !blockedIds.has(p.author)).map((p) => ({
+    kind: 'post',
+    id: p.id,
+    authorId: p.author,
+    hex: p.hex,
+    caption: p.caption,
+    created_at: p.created_at,
+    username: p.profiles ? p.profiles.username : 'unknown',
+    likes: p.likes && p.likes[0] ? p.likes[0].count : 0,
+    commentCount: p.comments && p.comments[0] ? p.comments[0].count : 0,
+    liked: likedSet.has(p.id),
+    comments: null,
+    preview: previews.get(p.id) || [],
+  }));
+  return { items, last: data[data.length - 1].created_at, full: data.length === PAGE_SIZE };
+}
+
+const moreObserver = new IntersectionObserver((entries) => {
+  if (entries.some((e) => e.isIntersecting)) loadMore();
+}, { root: homeView, rootMargin: '600px 0px' });
+
+function addMoreMarker(failed) {
+  const m = document.createElement('div');
+  m.className = 'home-more';
+  m.id = 'homeMore';
+  if (failed) {
+    m.textContent = 'Couldn’t load more. Tap to retry.';
+    m.style.cursor = 'pointer';
+    m.addEventListener('click', loadMore);
+  } else {
+    m.textContent = homeDone ? 'You’re all caught up ✓' : 'Loading more…';
+    if (!homeDone) moreObserver.observe(m);
+  }
+  homeList.appendChild(m);
+}
+
+function removeMoreMarker() {
+  const m = $('homeMore');
+  if (m) { moreObserver.unobserve(m); m.remove(); }
+}
+
+async function loadHome() {
+  if (!sb) { homeLoaded = true; renderSamplePosts(); return; }
+  if (!authReady) { homeMessage('Loading…'); return; }
+  homeLoaded = true;
+
+  if (!session || !me) {
+    return homeMessage(
+      session ? 'Pick your @' : 'Welcome to Hue Swipe',
+      session ? 'Choose a username so friends can find you.' : 'Sign in to post colours and see what your friends post. Or just doomscroll.',
+      [[session ? 'Pick your @' : 'Sign in', () => showView('me')], ['Doomscroll', () => showView('doom'), true]],
+    );
+  }
+
+  const gen = ++homeGen;
+  homeBusy = true;
+  if (!homeList.querySelector('.card')) homeMessage('Loading…');
+  const res = await fetchPage(null);
+  homeBusy = false;
+  if (gen !== homeGen) return;
+
+  if (res.error) {
+    homeLoaded = false;
+    return homeMessage('Couldn’t load posts', 'Check your connection and try again.', [['Try again', loadHome]]);
+  }
+  if (!res.items.length && !res.full) {
+    return homeMessage('Your feed is empty', 'Add some friends, or post your first colour.',
+      [['Find friends', () => showView('friends')], ['Post', () => showView('post'), true]]);
+  }
+
+  homeList.innerHTML = '';
+  res.items.forEach((d) => homeList.appendChild(makeCard(d)));
+  homeCursor = res.last;
+  homeDone = !res.full;
+  addMoreMarker();
+  showHintOnce('home', 'Double-tap a colour to like it');
+}
+
+async function loadMore() {
+  if (homeBusy || homeDone || !homeCursor || !me) return;
+  homeBusy = true;
+  const gen = homeGen;
+  const res = await fetchPage(homeCursor);
+  homeBusy = false;
+  if (gen !== homeGen) return;
+  removeMoreMarker();
+  if (res.error) { addMoreMarker(true); return; }
+  res.items.forEach((d) => homeList.appendChild(makeCard(d)));
+  if (res.last) homeCursor = res.last;
+  homeDone = !res.full;
+  addMoreMarker();
+}
+
+function refreshHome() {
+  homeView.scrollTo({ top: 0, behavior: 'smooth' });
+  loadHome();
+}
+$('homeRefresh').addEventListener('click', refreshHome);
+
+// pull to refresh
+(() => {
+  const ptr = $('ptr');
+  let startY = null;
+  let dist = 0;
+  homeView.addEventListener('touchstart', (e) => {
+    startY = homeView.scrollTop <= 0 ? e.touches[0].clientY : null;
+    dist = 0;
+  }, { passive: true });
+  homeView.addEventListener('touchmove', (e) => {
+    if (startY === null) return;
+    dist = e.touches[0].clientY - startY;
+    if (dist <= 0 || homeView.scrollTop > 0) { ptr.style.opacity = 0; return; }
+    ptr.style.opacity = Math.min(1, dist / 70);
+    ptr.style.transform = `translate(-50%, ${Math.min(dist / 2, 40) - 30}px)`;
+    ptr.textContent = dist > 70 ? '↻ Release to refresh' : '↓ Pull to refresh';
+  }, { passive: true });
+  homeView.addEventListener('touchend', () => {
+    if (startY !== null && dist > 70) {
+      ptr.textContent = 'Refreshing…';
+      loadHome();
+      setTimeout(() => { ptr.style.opacity = 0; }, 700);
+    } else {
+      ptr.style.opacity = 0;
+    }
+    startY = null;
+    dist = 0;
+  });
+})();
+
+// =====================================================================
+//  comments sheet (works for both modes)
+// =====================================================================
+const commentList = $('commentList');
+const commentInput = $('commentInput');
+let commentTarget = null;
+
+function commentListFor(d) {
+  return d.kind === 'random' ? getRandomComments(d) : (d.comments || []);
+}
+
+function commentRow(c, d) {
+  const row = document.createElement('div');
+  row.className = 'comment-row';
+  row.innerHTML = `
+    <div class="avatar" style="${avatarStyle(c.user)}"></div>
+    <div class="comment-body">
+      <span class="comment-user name-link">${esc(c.user)}</span>${esc(c.text)}
+      <div class="comment-meta">${esc(c.time)}</div>
+    </div>
+    <button class="comment-more" aria-label="Comment options">⋯</button>`;
+  row.querySelector('.comment-user').addEventListener('click', () => {
+    if (c.userId) openProfile(c.user);
+  });
+  row.querySelector('.comment-more').addEventListener('click', () => commentMenu(c, d));
+  return row;
+}
+
+function renderCommentList(list, d) {
+  const visible = list.filter((c) => !(c.userId && blockedIds.has(c.userId)));
+  $('commentTitle').textContent = `${visible.length} comment${visible.length === 1 ? '' : 's'}`;
+  commentList.innerHTML = '';
+  if (!visible.length) commentList.innerHTML = '<div class="muted center">No comments yet. Be the first.</div>';
+  visible.forEach((c) => commentList.appendChild(commentRow(c, d)));
+}
+
+async function openComments(d) {
+  if (!d) return;
+  commentTarget = d;
+  commentInput.value = '';
+  commentList.innerHTML = '';
+  commentOverlay.classList.add('open');
+
+  if (!isRealPost(d)) { renderCommentList(commentListFor(d), d); return; }
+
+  $('commentTitle').textContent = 'Loading…';
+  const { data, error } = await sb.from('comments')
+    .select('id, body, created_at, author, profiles!comments_author_fkey(username)')
+    .eq('post_id', d.id)
+    .order('created_at', { ascending: false });
+  if (commentTarget !== d) return;
+  if (error) {
+    $('commentTitle').textContent = 'Comments';
+    commentList.innerHTML = '<div class="muted center">Couldn’t load comments.</div>';
+    return;
+  }
+  d.comments = data.map((c) => ({
+    id: c.id,
+    user: c.profiles ? c.profiles.username : 'unknown',
+    userId: c.author,
+    text: c.body,
+    time: timeAgo(c.created_at),
+  }));
+  d.commentCount = d.comments.length;
+  d.preview = d.comments.slice(0, 2);
+  renderCommentList(d.comments, d);
+  refreshItem(d);
+}
+
+async function postComment() {
+  const text = commentInput.value.trim();
+  const d = commentTarget;
+  if (!text || !d) return;
+
+  let c;
+  if (isRealPost(d)) {
+    if (!me) { toast('Sign in to comment'); return; }
+    $('commentPost').disabled = true;
+    const { data, error } = await sb.from('comments').insert({ post_id: d.id, body: text }).select('id').single();
+    $('commentPost').disabled = false;
+    if (error) { toast(friendlyError(error, 'Couldn’t post that comment')); return; }
+    c = { id: data.id, user: me.username, userId: me.id, text, time: 'now' };
+  } else {
+    c = { user: me ? me.username : 'you', text, time: 'now', local: true };
+  }
+
+  if (d.kind === 'random') {
+    getRandomComments(d).unshift(c);
+  } else {
+    d.comments = d.comments || [];
+    d.comments.unshift(c);
+    d.commentCount += 1;
+    d.preview = d.comments.slice(0, 2);
+  }
+  commentInput.value = '';
+  renderCommentList(commentListFor(d), d);
+  refreshItem(d);
+}
+
+function commentMenu(c, d) {
+  const real = isRealPost(d);
+  const mine = c.local || (me && c.userId === me.id);
+  const onMyPost = real && me && d.authorId === me.id;
+  const actions = [];
+  if (mine || onMyPost) actions.push({ label: 'Delete comment', danger: true, handler: () => deleteComment(c, d) });
+  if (!mine) {
+    actions.push({ label: 'Report comment', handler: () => report({ userId: c.userId, commentId: c.id, demo: !real }) });
+    if (real && c.userId) actions.push({ label: `Block @${c.user}`, danger: true, handler: () => blockUser(c.userId, c.user) });
+  }
+  actionSheet('Comment', actions);
+}
+
+async function deleteComment(c, d) {
+  if (isRealPost(d) && c.id) {
+    const { error } = await sb.from('comments').delete().eq('id', c.id);
+    if (error) { toast('Couldn’t delete that comment'); return; }
+  }
+  const list = commentListFor(d);
+  const i = list.indexOf(c);
+  if (i >= 0) list.splice(i, 1);
+  if (d.kind !== 'random') {
+    d.commentCount = Math.max(0, d.commentCount - 1);
+    d.preview = list.slice(0, 2);
+  }
+  if (commentTarget === d) renderCommentList(list, d);
+  refreshItem(d);
+  toast('Comment deleted');
+}
+
+$('commentPost').addEventListener('click', postComment);
+commentInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') postComment(); });
+
+// =====================================================================
+//  share sheet
+// =====================================================================
+let shareHex = null;
+
+function shareUrl(hex) {
+  return `${BASE_URL}/${hex.replace('#', '')}`;
+}
+
+function openShare(hex) {
+  shareHex = hex;
+  $('shareSwatch').style.background = hex;
+  $('shareLink').textContent = shareUrl(hex);
+  $('shareCopy').textContent = 'Copy';
+  $('shareCopy').classList.remove('copied');
+  shareOverlay.classList.add('open');
+}
+
+async function copyShare() {
+  try {
+    await navigator.clipboard.writeText(shareUrl(shareHex));
+    $('shareCopy').textContent = 'Copied!';
+    $('shareCopy').classList.add('copied');
+  } catch {
+    toast('Couldn’t copy. Long-press the link instead.');
+  }
+}
+$('shareCopy').addEventListener('click', copyShare);
+$('shareNative').addEventListener('click', async () => {
+  const url = shareUrl(shareHex);
+  if (navigator.share) {
+    try { await navigator.share({ title: 'Check out this colour', url }); } catch {}
+  } else {
+    copyShare();
+  }
+});
+
+async function shareInvite() {
+  const url = `${BASE_URL}/@${me.username}`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Add me on Hue Swipe', text: `I’m @${me.username} on Hue Swipe`, url });
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
+  }
+  copyText(url, 'Invite link copied');
+}
+
+// =====================================================================
+//  view switching
+// =====================================================================
+const TABS = ['home', 'doom', 'post', 'friends', 'me'];
+const VIEWS = [...TABS, 'profile'];
+
+function showView(v) {
+  currentView = v;
+  VIEWS.forEach((n) => {
+    $(n + 'View').classList.toggle('active', n === v);
+    const tab = $(n + 'Tab');
+    if (tab) tab.classList.toggle('active', n === v);
+  });
+  if (v === 'home' && !homeLoaded) loadHome();
+  if (v === 'doom') showHintOnce('doom', 'Swipe up for the next colour · double-tap to like');
+  if (v === 'post') renderPostView();
+  if (v === 'friends') renderFriendsView();
+  if (v === 'me') renderMeView();
+  syncActive();
+}
+TABS.forEach((n) => $(n + 'Tab').addEventListener('click', () => {
+  if (n === 'home' && currentView === 'home') { refreshHome(); return; }
+  showView(n);
+}));
+
+// Shows a sign-in / setup prompt instead of the page when needed.
+function gate(el, title) {
+  if (!sb) {
+    el.innerHTML = `
+      <h1 class="panel-title">${esc(title)}</h1>
+      <div class="notice"><div class="muted">Accounts aren’t switched on yet. Add your Supabase
+      details to the CONFIG section of index.html (see the README).</div></div>`;
+    return false;
+  }
+  if (!authReady) {
+    el.innerHTML = `<h1 class="panel-title">${esc(title)}</h1><div class="muted">Loading…</div>`;
+    return false;
+  }
+  if (!session || !me) {
+    el.innerHTML = `
+      <h1 class="panel-title">${esc(title)}</h1>
+      <div class="notice">
+        <div class="muted">${session ? 'Pick your @ first.' : 'You need an account for this.'}</div>
+        <button class="btn" id="gateBtn">${session ? 'Pick your @' : 'Sign in or sign up'}</button>
+      </div>`;
+    $('gateBtn').addEventListener('click', () => showView('me'));
+    return false;
+  }
+  return true;
+}
+
+// =====================================================================
+//  POST
+// =====================================================================
+let draftHex = randomColor('mix');
+let draftCaption = '';
+
+function renderPostView() {
+  const el = $('postInner');
+  if (!gate(el, 'New post')) return;
+
+  el.innerHTML = `
+    <h1 class="panel-title">New post</h1>
+    <div class="post-preview" id="postPreview"></div>
+    <div class="row">
+      <label class="btn secondary color-btn">🎨 Pick colour<input type="color" id="postColor"></label>
+      <button class="btn secondary" id="postRandom">🎲 Random</button>
+    </div>
+    <textarea class="input" id="postCaption" maxlength="140" placeholder="Add a caption (optional)"></textarea>
+    <button class="btn block" id="postSubmit">Share</button>
+    <div class="muted center">Only your friends will see it.</div>`;
+
+  const preview = $('postPreview');
+  const colorInput = $('postColor');
+  const caption = $('postCaption');
+
+  function paint() {
+    preview.style.background = draftHex;
+    preview.style.color = inkFor(draftHex);
+    preview.textContent = draftHex.toUpperCase();
+    colorInput.value = draftHex;
+  }
+  paint();
+  caption.value = draftCaption;
+
+  colorInput.addEventListener('input', () => { draftHex = colorInput.value.toLowerCase(); paint(); });
+  $('postRandom').addEventListener('click', () => { draftHex = randomColor('mix'); paint(); });
+  caption.addEventListener('input', () => { draftCaption = caption.value; });
+
+  $('postSubmit').addEventListener('click', async () => {
+    const btn = $('postSubmit');
+    btn.disabled = true;
+    const { error } = await sb.from('posts').insert({
+      hex: draftHex.toLowerCase(),
+      caption: draftCaption.trim() || null,
+    });
+    btn.disabled = false;
+    if (error) { toast(friendlyError(error, 'Couldn’t post that, try again')); return; }
+    toast('Posted!');
+    draftHex = randomColor('mix');
+    draftCaption = '';
+    homeLoaded = false;
+    homeView.scrollTop = 0;
+    showView('home');
+  });
+}
+
+// =====================================================================
+//  FRIENDS
+// =====================================================================
+let friendships = [];
+
+function setBadge(n) {
+  const badge = $('friendsBadge');
+  badge.hidden = !n;
+  badge.textContent = n > 9 ? '9+' : String(n);
+}
+
+async function updateBadge() {
+  if (!sb || !me) { setBadge(0); return; }
+  const { count } = await sb.from('friendships')
+    .select('id', { count: 'exact', head: true })
+    .eq('addressee', me.id)
+    .eq('status', 'pending');
+  setBadge(count || 0);
+}
+setInterval(() => { if (document.visibilityState === 'visible') updateBadge(); }, 60000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') updateBadge(); });
+
+async function loadFriendships() {
+  const { data, error } = await sb.from('friendships')
+    .select('id, status, requester, addressee, req:profiles!friendships_requester_fkey(username), adr:profiles!friendships_addressee_fkey(username)');
+  friendships = error ? [] : data;
+  if (me) setBadge(friendships.filter((f) => f.status === 'pending' && f.addressee === me.id).length);
+}
+
+function otherOf(f) {
+  return f.requester === me.id
+    ? { id: f.addressee, username: f.adr ? f.adr.username : '?' }
+    : { id: f.requester, username: f.req ? f.req.username : '?' };
+}
+
+function relationTo(userId) {
+  if (blockedIds.has(userId)) return { status: 'blocked' };
+  const f = friendships.find((x) => x.requester === userId || x.addressee === userId);
+  if (!f) return { status: 'none' };
+  if (f.status === 'accepted') return { status: 'friends', row: f };
+  return { status: f.requester === me.id ? 'sent' : 'incoming', row: f };
+}
+
+function makeButtons(container, buttons, extraClass) {
+  buttons.forEach(([label, cls, handler]) => {
+    const b = document.createElement('button');
+    b.className = `btn ${extraClass || ''} ${cls}`;
+    b.textContent = label;
+    if (handler) b.addEventListener('click', async () => { b.disabled = true; await handler(); });
+    else b.disabled = true;
+    container.appendChild(b);
+  });
+}
+
+function userRow(username, buttons) {
+  const row = document.createElement('div');
+  row.className = 'user-row';
+  row.innerHTML = `
+    <div class="avatar" style="${avatarStyle(username)}"></div>
+    <div class="name name-link">@${esc(username)}</div>
+    <div class="actions"></div>`;
+  row.querySelector('.name').addEventListener('click', () => openProfile(username));
+  makeButtons(row.querySelector('.actions'), buttons, 'small');
+  return row;
+}
+
+async function sendRequest(userId) {
+  const { error } = await sb.from('friendships').insert({ requester: me.id, addressee: userId });
+  if (error) {
+    toast(error.code === '23505' ? 'There’s already a request between you two'
+      : friendlyError(error, 'Couldn’t send that request'));
+  } else {
+    toast('Request sent');
+  }
+  await refreshFriends();
+}
+
+async function acceptRequest(row) {
+  const { error } = await sb.from('friendships').update({ status: 'accepted' }).eq('id', row.id);
+  if (error) toast('Couldn’t accept');
+  else toast(`You and @${otherOf(row).username} are now friends`);
+  homeLoaded = false;
+  await refreshFriends();
+}
+
+async function removeFriendship(row, msg) {
+  const { error } = await sb.from('friendships').delete().eq('id', row.id);
+  if (error) toast('Something went wrong');
+  else if (msg) toast(msg);
+  homeLoaded = false;
+  await refreshFriends();
+}
+
+async function refreshFriends() {
+  await loadFriendships();
+  if (currentView === 'friends') { renderFriendLists(); runSearch(); }
+  if (currentView === 'me') renderMeView();
+  if (currentView === 'profile' && currentProfile) openProfile(currentProfile);
+}
+
+function buttonsFor(userId, rel, username) {
+  switch (rel.status) {
+    case 'friends':  return [['Friends ✓', 'secondary', null]];
+    case 'sent':     return [['Requested', 'secondary', () => removeFriendship(rel.row, 'Request cancelled')]];
+    case 'incoming': return [['Accept', '', () => acceptRequest(rel.row)]];
+    case 'blocked':  return [['Unblock', 'secondary', () => unblockUser(userId, username)]];
+    default:         return [['Add friend', '', () => sendRequest(userId)]];
+  }
+}
+
+function cleanQuery(v) {
+  return v.trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_.]/g, '');
+}
+
+async function runSearch() {
+  const input = $('friendSearch');
+  const box = $('searchResults');
+  if (!input || !box) return;
+  const q = cleanQuery(input.value);
+  if (q.length < 2) { box.innerHTML = ''; return; }
+
+  const { data, error } = await sb.from('profiles')
+    .select('id, username')
+    .ilike('username', q.replace(/_/g, '\\_') + '%')
+    .neq('id', me.id)
+    .order('username')
+    .limit(10);
+  if (cleanQuery(input.value) !== q) return; // a newer search is on its way
+
+  box.innerHTML = '';
+  if (error) { box.innerHTML = '<div class="muted">Search failed.</div>'; return; }
+  if (!data.length) { box.innerHTML = `<div class="muted">No one called @${esc(q)}…</div>`; return; }
+  data.forEach((u) => box.appendChild(userRow(u.username, buttonsFor(u.id, relationTo(u.id), u.username))));
+}
+
+function renderFriendLists() {
+  const box = $('friendLists');
+  if (!box) return;
+  box.innerHTML = '';
+
+  const incoming = friendships.filter((f) => f.status === 'pending' && f.addressee === me.id);
+  const sent = friendships.filter((f) => f.status === 'pending' && f.requester === me.id);
+  const friends = friendships.filter((f) => f.status === 'accepted');
+
+  function section(title, rows) {
+    const h = document.createElement('div');
+    h.className = 'section-title';
+    h.textContent = title;
+    box.appendChild(h);
+    rows.forEach((row) => box.appendChild(row));
+  }
+
+  if (incoming.length) {
+    section(`Requests (${incoming.length})`, incoming.map((f) => userRow(otherOf(f).username, [
+      ['Accept', '', () => acceptRequest(f)],
+      ['Decline', 'secondary', () => removeFriendship(f, 'Request declined')],
+    ])));
+  }
+
+  section(`Friends (${friends.length})`, friends.length
+    ? friends.map((f) => userRow(otherOf(f).username, [
+        ['Remove', 'danger', () => {
+          if (confirm(`Remove @${otherOf(f).username} as a friend?`)) return removeFriendship(f, 'Friend removed');
+          return refreshFriends();
+        }],
+      ]))
+    : [Object.assign(document.createElement('div'), {
+        className: 'muted',
+        textContent: 'No friends yet. Send someone your invite link, or search for their @ above.',
+      })]);
+
+  if (sent.length) {
+    section('Sent', sent.map((f) => userRow(otherOf(f).username, [
+      ['Cancel', 'secondary', () => removeFriendship(f, 'Request cancelled')],
+    ])));
+  }
+
+  if (blockedList.length) {
+    section('Blocked', blockedList.map((b) => userRow(b.username, [
+      ['Unblock', 'secondary', () => unblockUser(b.id, b.username)],
+    ])));
+  }
+}
+
+async function renderFriendsView() {
+  const el = $('friendsInner');
+  if (!gate(el, 'Friends')) return;
+  el.innerHTML = `
+    <h1 class="panel-title">Friends</h1>
+    <button class="btn block" id="inviteBtn">📨 Invite friends</button>
+    <div class="at-input"><span>@</span>
+      <input class="input" id="friendSearch" placeholder="search usernames" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <div id="searchResults"></div>
+    <div id="friendLists"><div class="muted">Loading…</div></div>`;
+  $('inviteBtn').addEventListener('click', shareInvite);
+  $('friendSearch').addEventListener('input', debounce(runSearch, 250));
+  await loadFriendships();
+  if (currentView === 'friends') renderFriendLists();
+}
+
+// =====================================================================
+//  PROFILE (someone else's)
+// =====================================================================
+let profileReturn = 'home';
+let currentProfile = null;
+
+async function openProfile(username) {
+  if (!sb) { toast('Profiles need accounts switched on'); return; }
+  if (!me) { store.set('invite', username); showView('me'); return; }
+  if (username === me.username) { closeSheets(); showView('me'); return; }
+
+  closeSheets();
+  if (currentView !== 'profile') profileReturn = currentView;
+  currentProfile = username;
+  if (currentView !== 'profile') showView('profile');
+
+  const el = $('profileInner');
+  const backBtn = '<button class="back-btn" id="profileBack">‹ Back</button>';
+  if (!el.querySelector('.profile-head')) el.innerHTML = backBtn + '<div class="muted">Loading…</div>';
+  const wireBack = () => $('profileBack').addEventListener('click', () => {
+    currentProfile = null;
+    showView(profileReturn);
+  });
+  wireBack();
+
+  const { data: prof, error } = await sb.from('profiles').select('id, username').eq('username', username).maybeSingle();
+  if (currentProfile !== username) return;
+  if (error || !prof) {
+    el.innerHTML = `${backBtn}<h1 class="panel-title">@${esc(username)}</h1>
+      <div class="muted">This account doesn’t exist, or it’s been deleted.</div>`;
+    wireBack();
+    return;
+  }
+
+  await loadFriendships();
+  const rel = relationTo(prof.id);
+  let posts = [];
+  if (rel.status === 'friends') {
+    const { data } = await sb.from('posts')
+      .select('id, hex, likes(count)')
+      .eq('author', prof.id)
+      .order('created_at', { ascending: false })
+      .limit(60);
+    posts = data || [];
+  }
+  if (currentProfile !== username) return;
+
+  const lockedText = {
+    blocked: 'You’ve blocked this account.',
+    incoming: `@${esc(prof.username)} wants to be friends. Accept to see each other’s colours.`,
+    sent: 'Request sent. You’ll see their colours once they accept.',
+    none: `Add @${esc(prof.username)} as a friend to see their colours.`,
+  }[rel.status];
+
+  el.innerHTML = `
+    <div class="profile-top">${backBtn}<button class="card-more" id="profileMore" aria-label="More options">⋯</button></div>
+    <div class="profile-head">
+      <div class="avatar big" style="${avatarStyle(prof.username)}"></div>
+      <div>
+        <div class="profile-name">@${esc(prof.username)}</div>
+        <div class="muted">${rel.status === 'friends' ? `${posts.length} post${posts.length === 1 ? '' : 's'} · Friends` : '&nbsp;'}</div>
+      </div>
+    </div>
+    <div class="row" id="profileActions"></div>
+    ${rel.status === 'friends'
+      ? (posts.length ? '<div class="grid" id="profileGrid"></div>' : '<div class="muted center">No posts yet.</div>')
+      : `<div class="notice"><div class="muted">${lockedText}</div></div>`}`;
+  wireBack();
+
+  if (rel.status !== 'friends') makeButtons($('profileActions'), buttonsFor(prof.id, rel, prof.username), 'block');
+  else $('profileActions').remove();
+
+  const grid = $('profileGrid');
+  if (grid) {
+    posts.forEach((p) => {
+      const likes = p.likes && p.likes[0] ? p.likes[0].count : 0;
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.style.background = p.hex;
+      tile.style.color = inkFor(p.hex);
+      tile.innerHTML = `<span>♥ ${formatCount(likes)}</span>`;
+      grid.appendChild(tile);
+    });
+  }
+
+  $('profileMore').addEventListener('click', () => {
+    const actions = [];
+    if (rel.status === 'friends') {
+      actions.push({ label: 'Remove friend', handler: () => {
+        if (confirm(`Remove @${prof.username} as a friend?`)) removeFriendship(rel.row, 'Friend removed');
+      } });
+    }
+    actions.push({ label: `Report @${prof.username}`, handler: () => report({ userId: prof.id }) });
+    if (rel.status === 'blocked') actions.push({ label: `Unblock @${prof.username}`, handler: () => unblockUser(prof.id, prof.username) });
+    else actions.push({ label: `Block @${prof.username}`, danger: true, handler: () => blockUser(prof.id, prof.username) });
+    actionSheet(`@${prof.username}`, actions);
+  });
+}
+
+// =====================================================================
+//  ME — account + settings
+// =====================================================================
+let authMode = 'signin';
+
+function renderMeView() {
+  const el = $('meInner');
+  el.innerHTML = '';
+
+  const account = document.createElement('div');
+  account.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+  el.appendChild(account);
+
+  if (!sb) {
+    account.innerHTML = `
+      <h1 class="panel-title">Me</h1>
+      <div class="notice"><div class="muted">Accounts aren’t switched on yet. Add your Supabase
+      details to the CONFIG section of index.html (see the README). Doomscroll and the colour
+      settings work without an account.</div></div>`;
+  } else if (!authReady) {
+    account.innerHTML = '<h1 class="panel-title">Me</h1><div class="muted">Loading…</div>';
+  } else if (recoveryMode && session) {
+    renderNewPasswordForm(account);
+  } else if (!session) {
+    renderAuthForm(account);
+  } else if (!me) {
+    renderUsernameForm(account);
+  } else {
+    renderProfile(account);
+  }
+
+  const settings = document.createElement('div');
+  settings.style.cssText = 'display:flex;flex-direction:column;gap:10px';
+  settings.innerHTML = `
+    <div class="section-title">Doomscroll colours</div>
+    <div class="muted">Which colours Doomscroll generates.</div>
+    <div id="paletteList" style="display:flex;flex-direction:column;gap:10px"></div>`;
+  el.appendChild(settings);
+  renderPaletteList();
+
+  if (me && !recoveryMode) {
+    const danger = document.createElement('div');
+    danger.className = 'danger-zone';
+    danger.innerHTML = `
+      <div class="section-title">Account</div>
+      <button class="btn danger block" id="deleteAccountBtn">Delete my account</button>`;
+    el.appendChild(danger);
+    $('deleteAccountBtn').addEventListener('click', deleteAccount);
+  }
+
+  const footer = document.createElement('div');
+  footer.className = 'footer-links';
+  footer.innerHTML = '<a href="privacy.html" target="_blank" rel="noopener">Rules &amp; privacy</a>';
+  el.appendChild(footer);
+}
+
+function renderAuthForm(box) {
+  const signup = authMode === 'signup';
+  const invite = store.get('invite', '');
+  box.innerHTML = `
+    ${invite ? `<div class="notice"><div class="muted"><b style="color:#fff">@${esc(invite)}</b> invited you to Hue Swipe. ${signup ? 'Sign up' : 'Sign in'} to add them.</div></div>` : ''}
+    <h1 class="panel-title">${signup ? 'Create account' : 'Sign in'}</h1>
+    <input class="input" id="authEmail" type="email" placeholder="Email" autocomplete="email" autocapitalize="off">
+    <input class="input" id="authPass" type="password" placeholder="Password (6+ characters)"
+      autocomplete="${signup ? 'new-password' : 'current-password'}">
+    ${signup ? `
+      <label class="check-row"><input type="checkbox" id="authAgree">
+        <span>I’m 16 or older and agree to the <a href="privacy.html" target="_blank" rel="noopener">rules &amp; privacy policy</a>.</span>
+      </label>` : ''}
+    <button class="btn block" id="authSubmit">${signup ? 'Sign up' : 'Sign in'}</button>
+    ${signup ? '' : '<button class="link-btn" id="authForgot">Forgot password?</button>'}
+    <button class="link-btn" id="authSwitch">${signup ? 'Already have an account? Sign in' : 'New here? Create an account'}</button>`;
+
+  $('authSwitch').addEventListener('click', () => { authMode = signup ? 'signin' : 'signup'; renderMeView(); });
+
+  if (!signup) {
+    $('authForgot').addEventListener('click', async () => {
+      const email = $('authEmail').value.trim();
+      if (!email) { toast('Type your email above first'); return; }
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: BASE_URL + '/' });
+      toast(error ? error.message : 'Check your email for a reset link');
+    });
+  }
+
+  async function submit() {
+    const email = $('authEmail').value.trim();
+    const password = $('authPass').value;
+    if (!email || password.length < 6) { toast('Enter an email and a 6+ character password'); return; }
+    if (signup && !$('authAgree').checked) { toast('Please confirm you’re 16+ and agree to the rules'); return; }
+    const btn = $('authSubmit');
+    btn.disabled = true;
+    if (signup) {
+      const { data, error } = await sb.auth.signUp({
+        email, password, options: { emailRedirectTo: BASE_URL + '/' },
+      });
+      btn.disabled = false;
+      if (error) { toast(error.message); return; }
+      if (!data.session) toast('Check your email to confirm your account');
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      btn.disabled = false;
+      if (error) { toast(error.message); return; }
+    }
+  }
+  $('authSubmit').addEventListener('click', submit);
+  $('authPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+}
+
+function renderNewPasswordForm(box) {
+  box.innerHTML = `
+    <h1 class="panel-title">Set a new password</h1>
+    <input class="input" id="newPass" type="password" placeholder="New password (6+ characters)" autocomplete="new-password">
+    <button class="btn block" id="newPassSave">Save password</button>`;
+  $('newPassSave').addEventListener('click', async () => {
+    const password = $('newPass').value;
+    if (password.length < 6) { toast('Use at least 6 characters'); return; }
+    const { error } = await sb.auth.updateUser({ password });
+    if (error) { toast(error.message); return; }
+    recoveryMode = false;
+    toast('Password updated');
+    renderMeView();
+  });
+}
+
+function renderUsernameForm(box) {
+  box.innerHTML = `
+    <h1 class="panel-title">Pick your @</h1>
+    <div class="muted">3–20 characters: lowercase letters, numbers, underscores and dots.
+    This is how friends find you, and it can’t be changed later.</div>
+    <div class="at-input"><span>@</span>
+      <input class="input" id="usernameInput" placeholder="username" maxlength="20"
+        autocomplete="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <button class="btn block" id="usernameSave">Save</button>
+    <button class="link-btn" id="signOutBtn">Sign out</button>`;
+
+  const input = $('usernameInput');
+  input.addEventListener('input', () => {
+    input.value = input.value.toLowerCase().replace(/[^a-z0-9_.]/g, '');
+  });
+
+  $('usernameSave').addEventListener('click', async () => {
+    const username = input.value;
+    if (!/^[a-z0-9_.]{3,20}$/.test(username)) { toast('3–20 characters: a–z, 0–9, _ and .'); return; }
+    const btn = $('usernameSave');
+    btn.disabled = true;
+    const { error } = await sb.from('profiles').insert({ id: session.user.id, username });
+    btn.disabled = false;
+    if (error) {
+      toast(error.code === '23505' ? `@${username} is taken` : 'Couldn’t save that username');
+      return;
+    }
+    me = { id: session.user.id, username };
+    homeLoaded = false;
+    toast(`Welcome, @${username}!`);
+    if (!maybeOpenInvite()) renderMeView();
+  });
+  $('signOutBtn').addEventListener('click', () => sb.auth.signOut());
+}
+
+function renderProfile(box) {
+  box.innerHTML = `
+    <div class="profile-head">
+      <div class="avatar big" style="${avatarStyle(me.username)}"></div>
+      <div>
+        <div class="profile-name">@${esc(me.username)}</div>
+        <div class="muted" id="profileStats">&nbsp;</div>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn secondary" id="goPost">+ New post</button>
+      <button class="btn secondary" id="inviteMeBtn">📨 Invite</button>
+    </div>
+    <div class="section-title">Your posts</div>
+    <div class="grid" id="myPosts"></div>
+    <div class="muted center" id="myPostsEmpty" style="display:none">You haven’t posted any colours yet.</div>
+    <button class="btn secondary block" id="signOutBtn" style="margin-top:8px">Sign out</button>`;
+
+  $('goPost').addEventListener('click', () => showView('post'));
+  $('inviteMeBtn').addEventListener('click', shareInvite);
+  $('signOutBtn').addEventListener('click', () => sb.auth.signOut());
+  loadMyPosts();
+}
+
+async function loadMyPosts() {
+  const [{ data: posts, error }] = await Promise.all([
+    sb.from('posts').select('id, hex, caption, created_at, likes(count)')
+      .eq('author', me.id).order('created_at', { ascending: false }),
+    loadFriendships(),
+  ]);
+  const grid = $('myPosts');
+  if (!grid) return;
+  if (error) { grid.innerHTML = '<div class="muted">Couldn’t load your posts.</div>'; return; }
+
+  const friendCount = friendships.filter((f) => f.status === 'accepted').length;
+  $('profileStats').textContent =
+    `${posts.length} post${posts.length === 1 ? '' : 's'} · ${friendCount} friend${friendCount === 1 ? '' : 's'}`;
+  $('myPostsEmpty').style.display = posts.length ? 'none' : 'block';
+
+  grid.innerHTML = '';
+  posts.forEach((p) => {
+    const likes = p.likes && p.likes[0] ? p.likes[0].count : 0;
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.style.background = p.hex;
+    tile.style.color = inkFor(p.hex);
+    tile.innerHTML = `<span>♥ ${formatCount(likes)}</span><button class="tile-del" aria-label="Delete post">×</button>`;
+    tile.querySelector('.tile-del').addEventListener('click', async () => {
+      if (!confirm('Delete this post? This can’t be undone.')) return;
+      const { error: delErr } = await sb.from('posts').delete().eq('id', p.id);
+      if (delErr) { toast('Couldn’t delete'); return; }
+      toast('Deleted');
+      homeLoaded = false;
+      loadMyPosts();
+    });
+    grid.appendChild(tile);
+  });
+}
+
+async function deleteAccount() {
+  const typed = prompt(`This permanently deletes @${me.username} and everything you’ve posted.\n\nType your username to confirm:`);
+  if (typed === null) return;
+  if (cleanQuery(typed) !== me.username) { toast('Username didn’t match, nothing was deleted'); return; }
+  const { error } = await sb.rpc('delete_my_account');
+  if (error) { toast('Couldn’t delete your account. Try again.'); return; }
+  await sb.auth.signOut({ scope: 'local' });
+  toast('Your account has been deleted');
+}
+
+function renderPaletteList() {
+  const list = $('paletteList');
+  if (!list) return;
+  list.innerHTML = '';
+  Object.keys(palettes).forEach((key) => {
+    const p = palettes[key];
+    const swatches = p.preview || [hslToHex(monoHue, 55, 30), hslToHex(monoHue, 55, 55), hslToHex(monoHue, 55, 80)];
+    const opt = document.createElement('div');
+    opt.className = 'palette-option' + (key === currentPalette ? ' selected' : '');
+    opt.innerHTML = `
+      <div class="palette-swatches">${swatches.map((c) => `<span style="background:${c}"></span>`).join('')}</div>
+      <div class="palette-info">
+        <div class="palette-name">${p.name}</div>
+        <div class="palette-desc">${p.desc}</div>
+      </div>
+      <div class="palette-check">✓</div>`;
+    opt.addEventListener('click', () => {
+      currentPalette = key;
+      store.set('palette', key);
+      if (key === 'mono') monoHue = r() * 360;
+      lastHue = null;
+      renderPaletteList();
+    });
+    list.appendChild(opt);
+  });
+}
+
+// =====================================================================
+//  auth state + invites
+// =====================================================================
+function maybeOpenInvite() {
+  const u = store.get('invite', '');
+  if (!u || !me) return false;
+  store.del('invite');
+  if (u === me.username) return false;
+  openProfile(u);
+  return true;
+}
+
+async function handleSession(event, s) {
+  session = s;
+  if (event === 'PASSWORD_RECOVERY') recoveryMode = true;
+  const uid = s && s.user ? s.user.id : null;
+  if (authReady && uid === lastUserId) {         // token refreshes etc.
+    if (event === 'PASSWORD_RECOVERY') showView('me');
+    return;
+  }
+  lastUserId = uid;
+  me = null;
+  blockedIds = new Set();
+  blockedList = [];
+  if (uid) {
+    const { data } = await sb.from('profiles').select('id, username').eq('id', uid).maybeSingle();
+    me = data || null;
+    if (me) await loadBlocks();
+  }
+  authReady = true;
+  friendships = [];
+  homeLoaded = false;
+  homeGen++;
+  updateBadge();
+
+  if (recoveryMode && session) { showView('me'); return; }
+  if (maybeOpenInvite()) return;
+  if (currentView === 'home') loadHome();
+  else if (currentView === 'profile') showView('home');
+  else if (currentView !== 'doom') showView(currentView);
+}
+
+if (sb) {
+  // Don't await other Supabase calls inside this callback — defer them.
+  sb.auth.onAuthStateChange((event, s) => { setTimeout(() => handleSession(event, s), 0); });
+}
+
+// =====================================================================
+//  keyboard
+// =====================================================================
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeSheets(); return; }
+  if (currentView !== 'doom') return;
+  if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+  if ([commentOverlay, shareOverlay, actionOverlay].some((o) => o.classList.contains('open'))) return;
+  const h = doomFeed.clientHeight;
+  if (e.key === 'ArrowDown' || e.key === ' ') {
+    e.preventDefault();
+    doomFeed.scrollBy({ top: h, behavior: 'smooth' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    doomFeed.scrollBy({ top: -h, behavior: 'smooth' });
+  }
+});
+
+// =====================================================================
+//  start
+// =====================================================================
+(function start() {
+  // 404.html turns yoursite.com/3a7fd2 into ?c=3a7fd2 and yoursite.com/@name into ?u=name
+  const params = new URLSearchParams(location.search);
+  const c = (params.get('c') || '').toLowerCase();
+  const u = (params.get('u') || '').toLowerCase();
+  const sharedColour = /^[0-9a-f]{6}$/.test(c);
+  const invite = /^[a-z0-9_.]{3,20}$/.test(u);
+  if (invite) store.set('invite', u);
+  if (params.has('c') || params.has('u')) {
+    params.delete('c');
+    params.delete('u');
+    const qs = params.toString();
+    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  }
+
+  if (sharedColour) addRandomSlide('#' + c);
+  for (let i = 0; i < 5; i++) addRandomSlide();
+
+  if (invite && sb) showView('me');                 // auth decides: sign-in form or their profile
+  else showView(sharedColour ? 'doom' : 'home');
+  if (invite && !sb) toast('Invite links work once accounts are set up');
+})();
+</script>
+</body>
+</html>

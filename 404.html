@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hue Swipe</title>
+<meta property="og:title" content="Hue Swipe">
+<meta property="og:description" content="Swipe through colours, post your favourites, and see what colours your friends are into.">
+<meta property="og:image" content="https://starfishrp.github.io/hueswipe/og.png">
+<script>
+  // GitHub Pages serves this page for any path that doesn't exist. Two kinds of
+  // links are turned into something the app understands:
+  //   /3a7fd2  (a shared colour)  ->  /?c=3a7fd2
+  //   /@name   (an invite link)   ->  /?u=name
+  // Anything else just goes to the home page.
+  (function () {
+    var parts = location.pathname.replace(/\/+$/, '').split('/');
+    var last = decodeURIComponent(parts.pop() || '');
+    var base = parts.join('/') + '/';
+    var query = '';
+    if (/^[0-9a-fA-F]{6}$/.test(last)) query = '?c=' + last.toLowerCase();
+    else if (/^@[A-Za-z0-9_.]{3,20}$/.test(last)) query = '?u=' + last.slice(1).toLowerCase();
+    location.replace(base + query);
+  })();
+</script>
+</head>
+<body style="background:#000"></body>
+</html>
