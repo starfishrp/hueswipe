@@ -112,7 +112,8 @@ To skip email confirmation: **Authentication → Sign In / Providers → Email**
 | File | What it is |
 | --- | --- |
 | `index.html` | The whole app |
-| `supabase/schema.sql` | Database tables and security rules (run once) |
+| `supabase/schema.sql` | Database tables and security rules (run once, for a brand-new project) |
+| `supabase/002_profile_update.sql` | Update for databases set up before profile colours and friends lists existed (safe to run again) |
 | `404.html` | Makes share links (`/3a7fd2`) and invite links (`/@name`) work |
 | `privacy.html` | Rules & privacy page, linked from sign-up |
 | `manifest.webmanifest`, `icons/` | App icon and "Add to Home Screen" support |
