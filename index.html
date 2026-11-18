@@ -211,43 +211,44 @@
     gap: 22px;
   }
   .sidebar.hidden { display: none; }
-  .sb-btn {
-    background: none;
-    border: none;
+  .share-community {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
+    padding: 11px 16px 11px 13px;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 24px;
+    background: rgba(0,0,0,0.38);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
     cursor: pointer;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s ease, background 0.2s ease;
   }
-  .sb-icon {
-    width: 44px;
-    height: 44px;
+  .share-community:active { transform: scale(0.94); }
+  .share-community:disabled { cursor: default; }
+  .share-community .sc-icon {
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    background: rgba(0,0,0,0.28);
-    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
-    color: #fff;
-    transition: transform 0.15s ease;
+    font-size: 14px;
+    background: linear-gradient(135deg, #ff5f6d, #ffc371, #47e5bc, #5b8cff, #c86dd7);
   }
-  .sb-btn:active .sb-icon { transform: scale(0.85); }
-  .sb-icon.liked { color: #ff3040; }
-  .sb-icon.pulse { animation: pulse 0.35s ease; }
+  .share-community.done { background: rgba(46,204,113,0.85); border-color: transparent; }
+  .share-community.done .sc-icon { background: rgba(255,255,255,0.25); }
+  .pulse { animation: pulse 0.35s ease; }
   @keyframes pulse {
     0%   { transform: scale(1); }
     35%  { transform: scale(1.3); }
     100% { transform: scale(1); }
-  }
-  .sb-count {
-    color: rgba(255,255,255,0.9);
-    mix-blend-mode: difference;
-    font-size: 12px;
-    font-weight: 600;
   }
 
   /* ---------- toolbar ---------- */
@@ -631,7 +632,7 @@
   .hint-pill {
     position: fixed;
     left: 50%;
-    bottom: calc(var(--tb-h) + 26px + env(safe-area-inset-bottom));
+    bottom: calc(var(--tb-h) + 130px + env(safe-area-inset-bottom));
     transform: translate(-50%, 10px);
     background: rgba(20,20,22,0.92);
     color: #fff;
@@ -675,6 +676,62 @@
     cursor: pointer;
     font-family: inherit;
   }
+  .avatar-edit { position: relative; background: none; border: none; padding: 0; cursor: pointer; flex-shrink: 0; }
+  .avatar-edit-badge {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--card2);
+    border: 2px solid var(--bg);
+    color: #fff;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .avatar.huge { width: 96px; height: 96px; }
+  .avatar-preview-row { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 14px; }
+  .avatar-preview-hex { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: var(--muted); }
+  .swatch-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 12px; }
+  .swatch {
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .swatch.sel { border-color: #fff; }
+  .friend-strip {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .friend-strip::-webkit-scrollbar { display: none; }
+  .friend-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 66px;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: #fff;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .friend-chip .avatar { width: 54px; height: 54px; }
+  .friend-chip span { max-width: 66px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .check-row { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted); line-height: 1.45; }
   .check-row input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--accent); flex-shrink: 0; }
   .check-row a, .footer-links a { color: var(--accent); }
@@ -699,17 +756,9 @@
 <div class="view" id="doomView">
   <div class="feed" id="doomFeed"></div>
   <div class="sidebar" id="sidebar">
-    <button class="sb-btn" id="heartBtn" aria-label="Like">
-      <div class="sb-icon" id="heartIcon">♡</div>
-      <div class="sb-count" id="heartCount">0</div>
-    </button>
-    <button class="sb-btn" id="commentBtn" aria-label="Comments">
-      <div class="sb-icon">💬</div>
-      <div class="sb-count" id="commentCount">0</div>
-    </button>
-    <button class="sb-btn" id="shareBtn" aria-label="Share">
-      <div class="sb-icon">↗</div>
-      <div class="sb-count">Share</div>
+    <button class="share-community" id="shareCommunityBtn">
+      <span class="sc-icon" id="shareCommunityIcon">↑</span>
+      <span id="shareCommunityLabel">Share to community</span>
     </button>
   </div>
 </div>
@@ -770,6 +819,24 @@
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="actionTitle"></div>
     <div class="action-list" id="actionList"></div>
+  </div>
+</div>
+
+<!-- profile colour picker -->
+<div class="overlay" id="avatarOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Profile colour</div>
+    <div class="avatar-preview-row">
+      <div class="avatar huge" id="avatarPreview"></div>
+      <div class="avatar-preview-hex" id="avatarPreviewHex"></div>
+    </div>
+    <div class="swatch-grid" id="swatchGrid"></div>
+    <div class="row">
+      <label class="btn secondary color-btn">🎨 Custom<input type="color" id="avatarCustom"></label>
+      <button class="btn secondary" id="avatarRandom">🎲 Random</button>
+    </div>
+    <button class="btn block" id="avatarSave" style="margin-top:10px">Save</button>
   </div>
 </div>
 
@@ -860,8 +927,24 @@ function hashHue(str) {
   return h;
 }
 
+// Profile colours people picked, by username. Anyone without one gets a colour from their name.
+const avatarColors = new Map();
+let hasAvatarCol = true;   // switched off if the database hasn't got the avatar_hex column yet
+const P = () => (hasAvatarCol ? 'username, avatar_hex' : 'username');
+
+function noteAvatars(x) {
+  if (!x || typeof x !== 'object') return;
+  if (Array.isArray(x)) { x.forEach(noteAvatars); return; }
+  if (typeof x.username === 'string' && x.avatar_hex) avatarColors.set(x.username, x.avatar_hex);
+  for (const k in x) if (x[k] && typeof x[k] === 'object') noteAvatars(x[k]);
+}
+
+function avatarColorOf(name) {
+  return avatarColors.get(name) || `hsl(${hashHue(name)},70%,55%)`;
+}
+
 function avatarStyle(name) {
-  return `background:hsl(${hashHue(name)},70%,55%)`;
+  return `background:${avatarColorOf(name)}`;
 }
 
 function inkFor(hex) {
@@ -1023,10 +1106,6 @@ function randomComments(count) {
     time: times[Math.floor(r() * times.length)],
   }));
 }
-function getRandomComments(d) {
-  if (!d.comments) d.comments = randomComments(Math.floor(r() * 10) + 3);
-  return d.comments;
-}
 
 // =====================================================================
 //  shared item logic — an "item" is a Doomscroll slide or a Home post
@@ -1044,14 +1123,9 @@ function isRealPost(d) {
   return d.kind === 'post' && !d.demo;
 }
 
-function commentCountOf(d) {
-  return d.kind === 'random' ? getRandomComments(d).length : d.commentCount;
-}
-
-// Re-draw wherever this item is on screen.
+// Re-draw a Home card after its likes or comments change.
 function refreshItem(d, pulse) {
   if (d.card) updateCard(d, pulse);
-  if (activeDoomItem() === d) { renderSidebar(); if (pulse) pulseHeart(); }
 }
 
 async function setLike(d, value) {
@@ -1107,11 +1181,13 @@ function doubleTapLike(d, e) {
 const commentOverlay = $('commentOverlay');
 const shareOverlay = $('shareOverlay');
 const actionOverlay = $('actionOverlay');
+const avatarOverlay = $('avatarOverlay');
+const SHEETS = [commentOverlay, shareOverlay, actionOverlay, avatarOverlay];
 
 function closeSheets() {
-  [commentOverlay, shareOverlay, actionOverlay].forEach((o) => o.classList.remove('open'));
+  SHEETS.forEach((o) => o.classList.remove('open'));
 }
-[commentOverlay, shareOverlay, actionOverlay].forEach((o) => {
+SHEETS.forEach((o) => {
   o.addEventListener('click', (e) => { if (e.target === o) o.classList.remove('open'); });
 });
 
@@ -1161,7 +1237,8 @@ async function submitReport(t, reason) {
 }
 
 async function loadBlocks() {
-  const { data } = await sb.from('blocks').select('blocked, who:profiles!blocks_blocked_fkey(username)');
+  const { data } = await sb.from('blocks').select(`blocked, who:profiles!blocks_blocked_fkey(${P()})`);
+  noteAvatars(data);
   blockedList = (data || []).map((b) => ({ id: b.blocked, username: b.who ? b.who.username : '?' }));
   blockedIds = new Set(blockedList.map((b) => b.id));
 }
@@ -1206,9 +1283,7 @@ function addRandomSlide(hex) {
   const d = {
     kind: 'random',
     hex: hex || randomColor(),
-    likes: Math.floor(r() * 900 + 20),
-    liked: false,
-    comments: null,
+    shared: false,   // 'sharing' while posting, then true
   };
   const el = document.createElement('div');
   el.className = 'slide';
@@ -1236,39 +1311,45 @@ doomFeed.addEventListener('scroll', () => {
   });
 });
 
-doomFeed.addEventListener('click', (e) => {
-  if (!isDoubleTap(e)) return;
-  const slide = e.target.closest('.slide');
-  const d = slide && slideData.get(slide);
-  if (d) doubleTapLike(d, e);
-});
-
-const heartIcon = $('heartIcon');
+// "Share to community": posts the colour on screen to your page.
+const shareCommunityBtn = $('shareCommunityBtn');
 
 function renderSidebar() {
   const d = activeDoomItem();
   $('sidebar').classList.toggle('hidden', !d);
   if (!d) return;
-  heartIcon.textContent = d.liked ? '♥' : '♡';
-  heartIcon.classList.toggle('liked', d.liked);
-  $('heartCount').textContent = formatCount(d.likes);
-  $('commentCount').textContent = formatCount(commentCountOf(d));
+  const done = d.shared === true;
+  const busy = d.shared === 'sharing';
+  shareCommunityBtn.classList.toggle('done', done);
+  shareCommunityBtn.disabled = done || busy;
+  $('shareCommunityIcon').textContent = done ? '✓' : '↑';
+  $('shareCommunityLabel').textContent = done ? 'Shared to your page' : (busy ? 'Sharing…' : 'Share to community');
 }
 
-function pulseHeart() {
-  heartIcon.classList.remove('pulse');
-  void heartIcon.offsetWidth;
-  heartIcon.classList.add('pulse');
-}
+shareCommunityBtn.addEventListener('click', async () => {
+  const d = activeDoomItem();
+  if (!d || d.shared) return;
+  if (!sb) { toast('Sharing works once accounts are set up'); return; }
+  if (!me) { toast(session ? 'Pick your @ first (Me tab)' : 'Sign in to share colours'); return; }
 
-$('heartBtn').addEventListener('click', () => {
-  const d = activeDoomItem();
-  if (d) setLike(d, !d.liked);
-});
-$('commentBtn').addEventListener('click', () => openComments(activeDoomItem()));
-$('shareBtn').addEventListener('click', () => {
-  const d = activeDoomItem();
-  if (d) openShare(d.hex);
+  d.shared = 'sharing';
+  renderSidebar();
+  const { error } = await sb.from('posts').insert({ hex: d.hex.toLowerCase() });
+  if (error) {
+    d.shared = false;
+    renderSidebar();
+    toast(friendlyError(error, 'Couldn’t share that, try again'));
+    return;
+  }
+  d.shared = true;
+  homeLoaded = false;   // Home picks up the new post next time it opens
+  if (activeDoomItem() === d) {
+    renderSidebar();
+    shareCommunityBtn.classList.remove('pulse');
+    void shareCommunityBtn.offsetWidth;
+    shareCommunityBtn.classList.add('pulse');
+  }
+  toast(`Shared ${d.hex.toUpperCase()} to your page`);
 });
 
 // =====================================================================
@@ -1437,7 +1518,7 @@ function renderSamplePosts() {
 
 async function fetchPage(before) {
   let q = sb.from('posts')
-    .select('id, hex, caption, created_at, author, profiles!posts_author_fkey(username), likes(count), comments(count)')
+    .select(`id, hex, caption, created_at, author, profiles!posts_author_fkey(${P()}), likes(count), comments(count)`)
     .order('created_at', { ascending: false })
     .limit(PAGE_SIZE);
   if (before) q = q.lt('created_at', before);
@@ -1449,11 +1530,13 @@ async function fetchPage(before) {
   const [likesRes, commentsRes] = await Promise.all([
     sb.from('likes').select('post_id').eq('user_id', me.id).in('post_id', ids),
     sb.from('comments')
-      .select('id, post_id, body, created_at, author, profiles!comments_author_fkey(username)')
+      .select(`id, post_id, body, created_at, author, profiles!comments_author_fkey(${P()})`)
       .in('post_id', ids)
       .order('created_at', { ascending: false })
       .limit(400),
   ]);
+  noteAvatars(data);
+  noteAvatars(commentsRes.data);
   const likedSet = new Set((likesRes.data || []).map((x) => x.post_id));
   const previews = new Map();
   (commentsRes.data || []).forEach((c) => {
@@ -1602,7 +1685,7 @@ const commentInput = $('commentInput');
 let commentTarget = null;
 
 function commentListFor(d) {
-  return d.kind === 'random' ? getRandomComments(d) : (d.comments || []);
+  return d.comments || [];
 }
 
 function commentRow(c, d) {
@@ -1641,7 +1724,7 @@ async function openComments(d) {
 
   $('commentTitle').textContent = 'Loading…';
   const { data, error } = await sb.from('comments')
-    .select('id, body, created_at, author, profiles!comments_author_fkey(username)')
+    .select(`id, body, created_at, author, profiles!comments_author_fkey(${P()})`)
     .eq('post_id', d.id)
     .order('created_at', { ascending: false });
   if (commentTarget !== d) return;
@@ -1650,6 +1733,7 @@ async function openComments(d) {
     commentList.innerHTML = '<div class="muted center">Couldn’t load comments.</div>';
     return;
   }
+  noteAvatars(data);
   d.comments = data.map((c) => ({
     id: c.id,
     user: c.profiles ? c.profiles.username : 'unknown',
@@ -1680,14 +1764,10 @@ async function postComment() {
     c = { user: me ? me.username : 'you', text, time: 'now', local: true };
   }
 
-  if (d.kind === 'random') {
-    getRandomComments(d).unshift(c);
-  } else {
-    d.comments = d.comments || [];
-    d.comments.unshift(c);
-    d.commentCount += 1;
-    d.preview = d.comments.slice(0, 2);
-  }
+  d.comments = d.comments || [];
+  d.comments.unshift(c);
+  d.commentCount += 1;
+  d.preview = d.comments.slice(0, 2);
   commentInput.value = '';
   renderCommentList(commentListFor(d), d);
   refreshItem(d);
@@ -1714,10 +1794,8 @@ async function deleteComment(c, d) {
   const list = commentListFor(d);
   const i = list.indexOf(c);
   if (i >= 0) list.splice(i, 1);
-  if (d.kind !== 'random') {
-    d.commentCount = Math.max(0, d.commentCount - 1);
-    d.preview = list.slice(0, 2);
-  }
+  d.commentCount = Math.max(0, d.commentCount - 1);
+  d.preview = list.slice(0, 2);
   if (commentTarget === d) renderCommentList(list, d);
   refreshItem(d);
   toast('Comment deleted');
@@ -1790,7 +1868,7 @@ function showView(v) {
     if (tab) tab.classList.toggle('active', n === v);
   });
   if (v === 'home' && !homeLoaded) loadHome();
-  if (v === 'doom') showHintOnce('doom', 'Swipe up for the next colour · double-tap to like');
+  if (v === 'doom') showHintOnce('doom2', 'Swipe up for the next colour · tap “Share to community” to post one');
   if (v === 'post') renderPostView();
   if (v === 'friends') renderFriendsView();
   if (v === 'me') renderMeView();
@@ -1907,8 +1985,9 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 async function loadFriendships() {
   const { data, error } = await sb.from('friendships')
-    .select('id, status, requester, addressee, req:profiles!friendships_requester_fkey(username), adr:profiles!friendships_addressee_fkey(username)');
+    .select(`id, status, requester, addressee, req:profiles!friendships_requester_fkey(${P()}), adr:profiles!friendships_addressee_fkey(${P()})`);
   friendships = error ? [] : data;
+  noteAvatars(friendships);
   if (me) setBadge(friendships.filter((f) => f.status === 'pending' && f.addressee === me.id).length);
 }
 
@@ -2005,7 +2084,7 @@ async function runSearch() {
   if (q.length < 2) { box.innerHTML = ''; return; }
 
   const { data, error } = await sb.from('profiles')
-    .select('id, username')
+    .select(`id, ${P()}`)
     .ilike('username', q.replace(/_/g, '\\_') + '%')
     .neq('id', me.id)
     .order('username')
@@ -2015,6 +2094,7 @@ async function runSearch() {
   box.innerHTML = '';
   if (error) { box.innerHTML = '<div class="muted">Search failed.</div>'; return; }
   if (!data.length) { box.innerHTML = `<div class="muted">No one called @${esc(q)}…</div>`; return; }
+  noteAvatars(data);
   data.forEach((u) => box.appendChild(userRow(u.username, buttonsFor(u.id, relationTo(u.id), u.username))));
 }
 
@@ -2040,6 +2120,29 @@ function renderFriendLists() {
       ['Accept', '', () => acceptRequest(f)],
       ['Decline', 'secondary', () => removeFriendship(f, 'Request declined')],
     ])));
+  }
+
+  // You may know: everyone in the community you're not already connected to.
+  if (communityList !== null) {
+    const strangers = communityList.filter((u) => relationTo(u.id).status === 'none');
+    const shown = strangers.slice(0, communityShown);
+    const rows = shown.map((u) => userRow(u.username, [['Add friend', '', () => sendRequest(u.id)]]));
+    if (!strangers.length) {
+      rows.push(Object.assign(document.createElement('div'), {
+        className: 'muted',
+        textContent: communityList.length
+          ? 'You’re connected with everyone here 🎉 Invite more friends to grow the community.'
+          : 'No one else has joined yet. Send your invite link to get people in.',
+      }));
+    }
+    if (strangers.length > shown.length) {
+      const more = document.createElement('button');
+      more.className = 'link-btn';
+      more.textContent = `Show more (${strangers.length - shown.length})`;
+      more.addEventListener('click', () => { communityShown += 30; renderFriendLists(); });
+      rows.push(more);
+    }
+    section(strangers.length ? `You may know (${strangers.length})` : 'You may know', rows);
   }
 
   section(`Friends (${friends.length})`, friends.length
@@ -2080,8 +2183,23 @@ async function renderFriendsView() {
     <div id="friendLists"><div class="muted">Loading…</div></div>`;
   $('inviteBtn').addEventListener('click', shareInvite);
   $('friendSearch').addEventListener('input', debounce(runSearch, 250));
-  await loadFriendships();
+  communityShown = 30;
+  await Promise.all([loadFriendships(), loadCommunity()]);
   if (currentView === 'friends') renderFriendLists();
+}
+
+// Everyone else in the community, newest first (blocked people left out).
+let communityList = null;   // null until loaded
+let communityShown = 30;
+
+async function loadCommunity() {
+  const { data, error } = await sb.from('profiles')
+    .select(`id, ${P()}, created_at`)
+    .neq('id', me.id)
+    .order('created_at', { ascending: false })
+    .limit(500);
+  noteAvatars(data);
+  communityList = error ? [] : data.filter((u) => !blockedIds.has(u.id));
 }
 
 // =====================================================================
@@ -2089,6 +2207,23 @@ async function renderFriendsView() {
 // =====================================================================
 let profileReturn = 'home';
 let currentProfile = null;
+
+// A sideways-scrolling row of friends: tap one to open their profile.
+function friendStrip(list, emptyText) {
+  if (!list.length) {
+    return Object.assign(document.createElement('div'), { className: 'muted', textContent: emptyText });
+  }
+  const strip = document.createElement('div');
+  strip.className = 'friend-strip';
+  list.forEach((u) => {
+    const chip = document.createElement('button');
+    chip.className = 'friend-chip';
+    chip.innerHTML = `<div class="avatar" style="${avatarStyle(u.username)}"></div><span>@${esc(u.username)}</span>`;
+    chip.addEventListener('click', () => openProfile(u.username));
+    strip.appendChild(chip);
+  });
+  return strip;
+}
 
 async function openProfile(username) {
   if (!sb) { toast('Profiles need accounts switched on'); return; }
@@ -2109,8 +2244,9 @@ async function openProfile(username) {
   });
   wireBack();
 
-  const { data: prof, error } = await sb.from('profiles').select('id, username').eq('username', username).maybeSingle();
+  const { data: prof, error } = await sb.from('profiles').select(`id, ${P()}`).eq('username', username).maybeSingle();
   if (currentProfile !== username) return;
+  noteAvatars(prof);
   if (error || !prof) {
     el.innerHTML = `${backBtn}<h1 class="panel-title">@${esc(username)}</h1>
       <div class="muted">This account doesn’t exist, or it’s been deleted.</div>`;
@@ -2121,13 +2257,21 @@ async function openProfile(username) {
   await loadFriendships();
   const rel = relationTo(prof.id);
   let posts = [];
+  let theirFriends = null;   // null = couldn't load (e.g. database update not run yet)
   if (rel.status === 'friends') {
-    const { data } = await sb.from('posts')
-      .select('id, hex, likes(count)')
-      .eq('author', prof.id)
-      .order('created_at', { ascending: false })
-      .limit(60);
-    posts = data || [];
+    const [postsRes, friendsRes] = await Promise.all([
+      sb.from('posts')
+        .select('id, hex, likes(count)')
+        .eq('author', prof.id)
+        .order('created_at', { ascending: false })
+        .limit(60),
+      sb.rpc('friends_of', { target: prof.id }),
+    ]);
+    posts = postsRes.data || [];
+    if (!friendsRes.error) {
+      noteAvatars(friendsRes.data);
+      theirFriends = friendsRes.data.filter((u) => !blockedIds.has(u.id));
+    }
   }
   if (currentProfile !== username) return;
 
@@ -2144,14 +2288,18 @@ async function openProfile(username) {
       <div class="avatar big" style="${avatarStyle(prof.username)}"></div>
       <div>
         <div class="profile-name">@${esc(prof.username)}</div>
-        <div class="muted">${rel.status === 'friends' ? `${posts.length} post${posts.length === 1 ? '' : 's'} · Friends` : '&nbsp;'}</div>
+        <div class="muted">${rel.status === 'friends'
+          ? `${posts.length} post${posts.length === 1 ? '' : 's'}${theirFriends ? ` · ${theirFriends.length} friend${theirFriends.length === 1 ? '' : 's'}` : ''} · Friends ✓`
+          : '&nbsp;'}</div>
       </div>
     </div>
     <div class="row" id="profileActions"></div>
+    ${rel.status === 'friends' && theirFriends ? `<div class="section-title">Friends (${theirFriends.length})</div><div id="profileFriends"></div>` : ''}
     ${rel.status === 'friends'
-      ? (posts.length ? '<div class="grid" id="profileGrid"></div>' : '<div class="muted center">No posts yet.</div>')
+      ? `<div class="section-title">Posts</div>${posts.length ? '<div class="grid" id="profileGrid"></div>' : '<div class="muted center">No posts yet.</div>'}`
       : `<div class="notice"><div class="muted">${lockedText}</div></div>`}`;
   wireBack();
+  if ($('profileFriends')) $('profileFriends').appendChild(friendStrip(theirFriends, 'No friends yet.'));
 
   if (rel.status !== 'friends') makeButtons($('profileActions'), buttonsFor(prof.id, rel, prof.username), 'block');
   else $('profileActions').remove();
@@ -2346,22 +2494,30 @@ function renderUsernameForm(box) {
 function renderProfile(box) {
   box.innerHTML = `
     <div class="profile-head">
-      <div class="avatar big" style="${avatarStyle(me.username)}"></div>
+      <button class="avatar-edit" id="avatarEditBtn" aria-label="Change profile colour">
+        <div class="avatar big" style="${avatarStyle(me.username)}"></div>
+        <span class="avatar-edit-badge">✎</span>
+      </button>
       <div>
         <div class="profile-name">@${esc(me.username)}</div>
         <div class="muted" id="profileStats">&nbsp;</div>
+        <button class="link-btn" id="avatarEditLink" style="padding:4px 0">Change colour</button>
       </div>
     </div>
     <div class="row">
       <button class="btn secondary" id="goPost">+ New post</button>
       <button class="btn secondary" id="inviteMeBtn">📨 Invite</button>
     </div>
+    <div class="section-title" id="myFriendsTitle">Friends</div>
+    <div id="myFriends"><div class="muted">Loading…</div></div>
     <div class="section-title">Your posts</div>
     <div class="grid" id="myPosts"></div>
     <div class="muted center" id="myPostsEmpty" style="display:none">You haven’t posted any colours yet.</div>
     <button class="btn secondary block" id="signOutBtn" style="margin-top:8px">Sign out</button>`;
 
   $('goPost').addEventListener('click', () => showView('post'));
+  $('avatarEditBtn').addEventListener('click', openAvatarPicker);
+  $('avatarEditLink').addEventListener('click', openAvatarPicker);
   $('inviteMeBtn').addEventListener('click', shareInvite);
   $('signOutBtn').addEventListener('click', () => sb.auth.signOut());
   loadMyPosts();
@@ -2377,7 +2533,12 @@ async function loadMyPosts() {
   if (!grid) return;
   if (error) { grid.innerHTML = '<div class="muted">Couldn’t load your posts.</div>'; return; }
 
-  const friendCount = friendships.filter((f) => f.status === 'accepted').length;
+  const myFriends = friendships.filter((f) => f.status === 'accepted').map(otherOf)
+    .sort((a, b) => a.username.localeCompare(b.username));
+  const friendCount = myFriends.length;
+  $('myFriendsTitle').textContent = `Friends (${friendCount})`;
+  $('myFriends').innerHTML = '';
+  $('myFriends').appendChild(friendStrip(myFriends, 'No friends yet. Find people on the Friends tab.'));
   $('profileStats').textContent =
     `${posts.length} post${posts.length === 1 ? '' : 's'} · ${friendCount} friend${friendCount === 1 ? '' : 's'}`;
   $('myPostsEmpty').style.display = posts.length ? 'none' : 'block';
@@ -2401,6 +2562,67 @@ async function loadMyPosts() {
     grid.appendChild(tile);
   });
 }
+
+// ---------------------------------------------------------------------
+//  profile colour picker
+// ---------------------------------------------------------------------
+const AVATAR_SWATCHES = [
+  '#e53935', '#ff7043', '#ffb300', '#fdd835', '#c0ca33', '#43a047',
+  '#00897b', '#00acc1', '#1e88e5', '#3949ab', '#8e24aa', '#d81b60',
+  '#f7c6d9', '#c9e4ff', '#b8f2d0', '#1d3b2a', '#2b1b2f', '#212121',
+];
+let avatarDraft = null;
+
+function toHex(color) {
+  // Turns any CSS colour (e.g. the hsl() fallback) into #rrggbb for the colour input.
+  const c = document.createElement('canvas').getContext('2d');
+  c.fillStyle = color;
+  return c.fillStyle.startsWith('#') ? c.fillStyle : '#888888';
+}
+
+function paintAvatarPicker() {
+  $('avatarPreview').style.background = avatarDraft;
+  $('avatarPreviewHex').textContent = avatarDraft.toUpperCase();
+  $('avatarCustom').value = avatarDraft;
+  $('swatchGrid').querySelectorAll('.swatch').forEach((el) => {
+    el.classList.toggle('sel', el.dataset.hex === avatarDraft);
+  });
+}
+
+function openAvatarPicker() {
+  if (!me) return;
+  if (!hasAvatarCol) { toast('Profile colours need a quick database update first (see README)'); return; }
+  avatarDraft = toHex(avatarColorOf(me.username)).toLowerCase();
+  const grid = $('swatchGrid');
+  grid.innerHTML = '';
+  AVATAR_SWATCHES.forEach((hex) => {
+    const b = document.createElement('button');
+    b.className = 'swatch';
+    b.dataset.hex = hex;
+    b.style.background = hex;
+    b.setAttribute('aria-label', hex);
+    b.addEventListener('click', () => { avatarDraft = hex; paintAvatarPicker(); });
+    grid.appendChild(b);
+  });
+  paintAvatarPicker();
+  avatarOverlay.classList.add('open');
+}
+
+$('avatarCustom').addEventListener('input', (e) => { avatarDraft = e.target.value.toLowerCase(); paintAvatarPicker(); });
+$('avatarRandom').addEventListener('click', () => { avatarDraft = randomColor('mix'); paintAvatarPicker(); });
+$('avatarSave').addEventListener('click', async () => {
+  const btn = $('avatarSave');
+  btn.disabled = true;
+  const { error } = await sb.from('profiles').update({ avatar_hex: avatarDraft }).eq('id', me.id);
+  btn.disabled = false;
+  if (error) { toast('Couldn’t save your colour, try again'); return; }
+  me.avatar_hex = avatarDraft;
+  avatarColors.set(me.username, avatarDraft);
+  avatarOverlay.classList.remove('open');
+  homeLoaded = false;
+  if (currentView === 'me') renderMeView();
+  toast('Profile colour updated');
+});
 
 async function deleteAccount() {
   const typed = prompt(`This permanently deletes @${me.username} and everything you’ve posted.\n\nType your username to confirm:`);
@@ -2464,12 +2686,19 @@ async function handleSession(event, s) {
   blockedIds = new Set();
   blockedList = [];
   if (uid) {
-    const { data } = await sb.from('profiles').select('id, username').eq('id', uid).maybeSingle();
-    me = data || null;
+    let res = await sb.from('profiles').select(`id, ${P()}`).eq('id', uid).maybeSingle();
+    if (res.error && res.error.code === '42703' && hasAvatarCol) {
+      // The avatar_hex column hasn't been added to the database yet: carry on without colours.
+      hasAvatarCol = false;
+      res = await sb.from('profiles').select(`id, ${P()}`).eq('id', uid).maybeSingle();
+    }
+    me = res.data || null;
+    noteAvatars(me);
     if (me) await loadBlocks();
   }
   authReady = true;
   friendships = [];
+  communityList = null;
   homeLoaded = false;
   homeGen++;
   updateBadge();
@@ -2493,7 +2722,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { closeSheets(); return; }
   if (currentView !== 'doom') return;
   if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
-  if ([commentOverlay, shareOverlay, actionOverlay].some((o) => o.classList.contains('open'))) return;
+  if (SHEETS.some((o) => o.classList.contains('open'))) return;
   const h = doomFeed.clientHeight;
   if (e.key === 'ArrowDown' || e.key === ' ') {
     e.preventDefault();
