@@ -242,8 +242,6 @@
     font-size: 14px;
     background: linear-gradient(135deg, #ff5f6d, #ffc371, #47e5bc, #5b8cff, #c86dd7);
   }
-  .share-community.done { background: rgba(46,204,113,0.85); border-color: transparent; }
-  .share-community.done .sc-icon { background: rgba(255,255,255,0.25); }
   .pulse { animation: pulse 0.35s ease; }
   @keyframes pulse {
     0%   { transform: scale(1); }
@@ -757,8 +755,8 @@
   <div class="feed" id="doomFeed"></div>
   <div class="sidebar" id="sidebar">
     <button class="share-community" id="shareCommunityBtn">
-      <span class="sc-icon" id="shareCommunityIcon">↑</span>
-      <span id="shareCommunityLabel">Share to community</span>
+      <span class="sc-icon">↑</span>
+      <span>Share to community</span>
     </button>
   </div>
 </div>
@@ -1283,7 +1281,6 @@ function addRandomSlide(hex) {
   const d = {
     kind: 'random',
     hex: hex || randomColor(),
-    shared: false,   // 'sharing' while posting, then true
   };
   const el = document.createElement('div');
   el.className = 'slide';
@@ -1311,45 +1308,22 @@ doomFeed.addEventListener('scroll', () => {
   });
 });
 
-// "Share to community": posts the colour on screen to your page.
+// "Share to community": takes the colour on screen to the Post tab, so you can add a caption.
 const shareCommunityBtn = $('shareCommunityBtn');
 
 function renderSidebar() {
-  const d = activeDoomItem();
-  $('sidebar').classList.toggle('hidden', !d);
-  if (!d) return;
-  const done = d.shared === true;
-  const busy = d.shared === 'sharing';
-  shareCommunityBtn.classList.toggle('done', done);
-  shareCommunityBtn.disabled = done || busy;
-  $('shareCommunityIcon').textContent = done ? '✓' : '↑';
-  $('shareCommunityLabel').textContent = done ? 'Shared to your page' : (busy ? 'Sharing…' : 'Share to community');
+  $('sidebar').classList.toggle('hidden', !activeDoomItem());
 }
 
-shareCommunityBtn.addEventListener('click', async () => {
+shareCommunityBtn.addEventListener('click', () => {
   const d = activeDoomItem();
-  if (!d || d.shared) return;
-  if (!sb) { toast('Sharing works once accounts are set up'); return; }
-  if (!me) { toast(session ? 'Pick your @ first (Me tab)' : 'Sign in to share colours'); return; }
-
-  d.shared = 'sharing';
-  renderSidebar();
-  const { error } = await sb.from('posts').insert({ hex: d.hex.toLowerCase() });
-  if (error) {
-    d.shared = false;
-    renderSidebar();
-    toast(friendlyError(error, 'Couldn’t share that, try again'));
-    return;
-  }
-  d.shared = true;
-  homeLoaded = false;   // Home picks up the new post next time it opens
-  if (activeDoomItem() === d) {
-    renderSidebar();
-    shareCommunityBtn.classList.remove('pulse');
-    void shareCommunityBtn.offsetWidth;
-    shareCommunityBtn.classList.add('pulse');
-  }
-  toast(`Shared ${d.hex.toUpperCase()} to your page`);
+  if (!d) return;
+  draftHex = d.hex.toLowerCase();
+  draftCaption = '';
+  postFromDoom = true;
+  showView('post');
+  const caption = $('postCaption');
+  if (caption) caption.focus();
 });
 
 // =====================================================================
@@ -1861,6 +1835,8 @@ const TABS = ['home', 'doom', 'post', 'friends', 'me'];
 const VIEWS = [...TABS, 'profile'];
 
 function showView(v) {
+  if (v !== 'post') postFromDoom = false;
+  $('hintPill').classList.remove('show');   // a tip from the last tab shouldn't follow you
   currentView = v;
   VIEWS.forEach((n) => {
     $(n + 'View').classList.toggle('active', n === v);
@@ -1868,7 +1844,7 @@ function showView(v) {
     if (tab) tab.classList.toggle('active', n === v);
   });
   if (v === 'home' && !homeLoaded) loadHome();
-  if (v === 'doom') showHintOnce('doom2', 'Swipe up for the next colour · tap “Share to community” to post one');
+  if (v === 'doom') showHintOnce('doom3', 'Swipe up for the next colour · tap “Share to community” to post one with a caption');
   if (v === 'post') renderPostView();
   if (v === 'friends') renderFriendsView();
   if (v === 'me') renderMeView();
@@ -1910,6 +1886,7 @@ function gate(el, title) {
 // =====================================================================
 let draftHex = randomColor('mix');
 let draftCaption = '';
+let postFromDoom = false;   // came from Doomscroll's "Share to community": offer a way back
 
 function renderPostView() {
   const el = $('postInner');
@@ -1924,7 +1901,11 @@ function renderPostView() {
     </div>
     <textarea class="input" id="postCaption" maxlength="140" placeholder="Add a caption (optional)"></textarea>
     <button class="btn block" id="postSubmit">Share</button>
+    ${postFromDoom ? '<button class="link-btn" id="postBackToDoom">‹ Back to Doomscroll</button>' : ''}
     <div class="muted center">Only your friends will see it.</div>`;
+  if (postFromDoom) {
+    $('postBackToDoom').addEventListener('click', () => { postFromDoom = false; showView('doom'); });
+  }
 
   const preview = $('postPreview');
   const colorInput = $('postColor');
@@ -1955,6 +1936,7 @@ function renderPostView() {
     toast('Posted!');
     draftHex = randomColor('mix');
     draftCaption = '';
+    postFromDoom = false;
     homeLoaded = false;
     homeView.scrollTop = 0;
     showView('home');
